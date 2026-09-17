@@ -5,5 +5,6 @@
   "escrow": "0xd8137397cd87b9ea9efc7f48ae7f02beb6908a49",
   "usdc": "0x3600000000000000000000000000000000000000",
   "admin": "0x82EacD27A39A68f78e43a1C2e3F3b920b29a7652",
-  "operations": "0x82EacD27A39A68f78e43a1C2e3F3b920b29a7652"
+  "operations": "0x82EacD27A39A68f78e43a1C2e3F3b920b29a7652",
+  "escrowDeploymentBlock": "62593524"
 }

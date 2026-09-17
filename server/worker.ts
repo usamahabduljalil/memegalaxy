@@ -1,3 +1,4 @@
+import { indexEntryHistory } from './entry-history';
 import { randomBytes } from 'node:crypto';
 import { keccak256, concatHex, formatUnits, type Address, type Hex } from 'viem';
 import { config } from './config';
@@ -70,5 +71,5 @@ async function payOutstanding(){
   for(const r of rows){await query('UPDATE registrations SET payment_checked_at=now() WHERE epoch_id=$1 AND wallet=$2',[r.epoch_id,r.wallet]);const id=BigInt(r.epoch_id),wallet=r.wallet as Address;const entry=await chain.readContract({address:escrowAddress(),abi:escrowAbi,functionName:'entryInfo',args:[id,wallet]});for(const [prefix,fn,already] of [['token','claimToken',entry[3]],['usdc','claimUSDC',entry[4]]] as const){const key=`${prefix}:${id}:${wallet}`;if(already){await query("INSERT INTO transactions(operation_key,epoch_id,wallet,kind,status) VALUES($1,$2,$3,$4,'confirmed') ON CONFLICT(operation_key) DO UPDATE SET status='confirmed'",[key,id.toString(),wallet,fn]);continue;}try{await writeEscrow(key,fn,[id,wallet],{epoch:id,wallet,kind:fn});}catch(error){console.error('Payment remains claimable',key,String(error).slice(0,120));}}}
 }
 const healthTimer=setInterval(()=>{void heartbeat('worker').catch(()=>{});},5000);
-let running=false;const timer=setInterval(async()=>{if(running)return;running=true;try{await heartbeat('worker');await reconcilePending();try{await processEpoch();}catch(error){console.error('Epoch coordinator:',error instanceof Error?error.message:String(error));}await payOutstanding();}catch(error){console.error('Worker cycle:',error instanceof Error?error.message:String(error));}finally{running=false;}},2000);
+let running=false;const timer=setInterval(async()=>{if(running)return;running=true;try{await heartbeat('worker');await reconcilePending();try{await processEpoch();}catch(error){console.error('Epoch coordinator:',error instanceof Error?error.message:String(error));}await payOutstanding();try{await indexEntryHistory();}catch(error){console.error('Entry history:',error instanceof Error?error.message:String(error));}}catch(error){console.error('Worker cycle:',error instanceof Error?error.message:String(error));}finally{running=false;}},2000);
 console.log('Arc testnet settlement worker running');process.on('SIGTERM',()=>{clearInterval(timer);clearInterval(healthTimer);void pool.end();process.exit(0);});

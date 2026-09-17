@@ -38,7 +38,8 @@ async function main(){
  const faucet=await deploy('DominateFaucet',[token]);
  const escrow=await deploy('BigCircle',[token,stable,admin,operator,registrar,ops]);
  await transact('FundTestFaucet',encodeFunctionData({abi:erc20Abi,functionName:'transfer',args:[faucet,1_000_000_000n*10n**18n]}),token);
- writeFileSync('.local/deployment.json',JSON.stringify({chainId:5042002,dominate:token,faucet,escrow,usdc:stable,admin,operations:ops},null,2));
+ const escrowDeploymentBlock=(await chain.getTransactionReceipt({hash:progress.attempts.BigCircle.hash})).blockNumber.toString();
+ writeFileSync('.local/deployment.json',JSON.stringify({chainId:5042002,escrowDeploymentBlock,dominate:token,faucet,escrow,usdc:stable,admin,operations:ops},null,2));
  console.log('Public deployment addresses saved. Seed the escrow separately with test USDC.');
 }
 main().catch(error=>{console.error(error.shortMessage||error.message||'Deployment failed');process.exitCode=1;});

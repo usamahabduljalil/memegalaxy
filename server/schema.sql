@@ -31,3 +31,6 @@ CREATE TABLE IF NOT EXISTS service_health (
   name text PRIMARY KEY, heartbeat timestamptz NOT NULL DEFAULT now(), detail jsonb NOT NULL DEFAULT '{}'
 );
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS raw_tx text;
+CREATE TABLE IF NOT EXISTS chain_cursors (
+  name text PRIMARY KEY, block_number bigint NOT NULL
+);

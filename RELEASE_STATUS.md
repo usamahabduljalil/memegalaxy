@@ -1,6 +1,6 @@
 # Release status — 17 September 2026
 
-Big Circle has a working local client connected to deployed Arc testnet contracts and Railway services. The public funded beta is not yet released. Public registration and mainnet remain disabled. Epoch 1 is open for an invite-only registration test with the owner's funded wallet. A complete ten-player match is still required before release.
+Big Circle has a working local client connected to deployed Arc testnet contracts and Railway services. Owner-private preview: https://big-circle-arc-beta.usamahabduljalil21.chatgpt.site. The public funded beta is not yet released. Public registration and mainnet remain disabled. Epoch 1 is open for an invite-only registration test with the owner's funded wallet. A complete ten-player match is still required before release.
 
 ## Deployed and verified
 
@@ -26,7 +26,7 @@ Big Circle has a working local client connected to deployed Arc testnet contract
 
 ## Remaining release gates
 
-- The connected player wallet shows 10,000 test DOMINATE and 20 test USDC after funding and faucet use. Complete approvals, confirmed entry, cancellation and withdrawal flows through Privy.
+- Two real 4,000-DOMINATE registration/cancellation cycles succeeded through Privy. Onchain events confirm both cycles and zero remaining locked entry. Wallet balances returned to 10,000 test DOMINATE; network gas was spent. All four confirmed transactions appear in durable wallet history. Post-match claims and timeout recovery remain to be exercised on testnet.
 - Complete real testnet multiplayer matches with at least ten confirmed entrants, including reconnects, rankings and automatic payouts. Practice bots do not satisfy this gate.
 - Verify deployed database/RPC interruption handling, restart reconciliation, backup/recovery configuration and payout retries.
 - Test 500 deployed connections and representative physical mobile performance.

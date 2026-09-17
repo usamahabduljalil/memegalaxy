@@ -196,3 +196,5 @@ For test-only role setup, `npx tsx scripts/setup-testnet-keys.ts` creates missin
 `ENTRY_ACCESS_MODE=invite-only` is the default. Set `BETA_TESTER_WALLETS` to comma-separated invited public addresses on the game service. An empty or invalid invitation configuration cannot authorize entries. `ENABLE_PAID_EPOCHS=true` enables the testnet coordinator and entry path; keep invite-only restrictions during verification. Remove those restrictions with explicit `ENTRY_ACCESS_MODE=public` only after the release gates pass. Invitations are checked after Privy verifies wallet ownership and before any entry authorization is signed. Cancellation and withdrawals stay available regardless of invitation status.
 
 The worker container needs `SERVICE_ROLE=worker`; game is the default image role. Both run locked schema migrations before starting. Public contract addresses are saved in `deploy/arc-testnet.json`.
+
+The worker indexes finalized registration and cancellation logs in bounded ranges. Set `ESCROW_DEPLOYMENT_BLOCK` from the deployment output; its database cursor advances atomically with history inserts, including entries cancelled between roster polls.
