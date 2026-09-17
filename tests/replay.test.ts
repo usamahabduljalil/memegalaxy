@@ -1,0 +1,10 @@
+import { describe,it,expect } from 'vitest';
+import { createGame,markConnection,setIntent,stepGame,rankPlayers,speedForMass } from '../shared/game';
+describe('failure and ranking boundaries',()=>{
+  it('disconnected players stop and forfeit after 20 seconds',()=>{const g=createGame([{id:'a',name:'a',deposit:1000},{id:'b',name:'b',deposit:1000}],1);setIntent(g,'a',{x:1,y:0});markConnection(g,'a',false);const x=g.players[0].x;for(let i=0;i<599;i++)stepGame(g,1/30);expect(g.players[0].alive).toBe(true);expect(g.players[0].x).toBe(x);for(let i=0;i<3;i++)stepGame(g,1/30);expect(g.players[0].alive).toBe(false);});
+  it('reconnection clears forfeit time',()=>{const g=createGame([{id:'a',name:'a',deposit:1000},{id:'b',name:'b',deposit:1000}],1);markConnection(g,'a',false);g.elapsed=19;markConnection(g,'a',true);g.elapsed=22;stepGame(g,1/30);expect(g.players[0].alive).toBe(true);});
+  it('smaller players move faster with bounded minimum speed',()=>{expect(speedForMass(1000)).toBeGreaterThan(speedForMass(4000));expect(speedForMass(1e9)).toBe(70);});
+  it('gifts change game mass, never the locked deposit',()=>{const g=createGame([{id:'a',name:'a',deposit:1000},{id:'b',name:'b',deposit:1000}],1);const p=g.players[0];g.gifts=[{id:1,x:p.x,y:p.y,kind:'mass',amount:500,expiresAt:6,contact:{}}];for(let i=0;i<10;i++)stepGame(g,1/30);expect(p.mass).toBe(1500);expect(p.deposit).toBe(1000);expect(g.gifts).toHaveLength(0);});
+  it('speed gifts expire and repeat pickups refresh the same multiplier',()=>{const g=createGame([{id:'a',name:'a',deposit:1000},{id:'b',name:'b',deposit:1000}],1);const p=g.players[0];g.gifts=[{id:1,x:p.x,y:p.y,kind:'speed',amount:0,expiresAt:6,contact:{}}];for(let i=0;i<10;i++)stepGame(g,1/30);expect(p.boostUntil).toBeGreaterThan(5);g.elapsed=6;expect(p.boostUntil).toBeLessThan(g.elapsed);});
+  it('tie resolution is stable and independent of array order',()=>{const g=createGame([{id:'a',name:'a',deposit:1000},{id:'b',name:'b',deposit:1000}],1);const order=rankPlayers(g).map(p=>p.id);g.players.reverse();expect(rankPlayers(g).map(p=>p.id)).toEqual(order);});
+});

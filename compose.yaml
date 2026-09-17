@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: bigcircle
+      POSTGRES_USER: bigcircle
+      POSTGRES_PASSWORD: bigcircle
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["db-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bigcircle"]
+      interval: 5s
+      retries: 10
+  game:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://bigcircle:bigcircle@db:5432/bigcircle
+    command: ["sh", "-c", "npm run db:migrate && npm run server"]
+    ports: ["2567:2567"]
+    depends_on:
+      db: {condition: service_healthy}
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://bigcircle:bigcircle@db:5432/bigcircle
+    command: ["sh", "-c", "npm run db:migrate && npm run worker"]
+    depends_on:
+      db: {condition: service_healthy}
+volumes:
+  db-data:
