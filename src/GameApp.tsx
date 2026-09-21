@@ -30,7 +30,7 @@ const duration=(s:number)=>`${Math.floor(Math.max(0,s)/60).toString().padStart(2
 
 const initialLobby:Lobby={status:'unavailable',count:0,pool:'0',message:'Connecting to the game service…'};
 
-export default function GameApp(){
+export default function GameApp({initialPractice=false}:{initialPractice?:boolean}){
 
   const wallet=useWallet();
 
@@ -58,6 +58,7 @@ export default function GameApp(){
 
   const practice=useCallback(()=>{void room.current?.leave();room.current=null;setStats(undefined);setSnapshot(undefined);setPlayerId('you');setMode('practice');setRunId(v=>v+1);setModal(null);document.getElementById('arena')?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});},[]);
 
+  useEffect(()=>{if(initialPractice)practice();},[initialPractice,practice]);
   const lobbyToolState=useRef(lobby);
   useEffect(()=>{lobbyToolState.current=lobby;},[lobby]);
   useEffect(()=>{const context=(document as any).modelContext;if(!context?.registerTool)return;const control=new AbortController();for(const tool of [{name:'read_big_circle_lobby',description:'Read the visible testnet lobby.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:(input:unknown)=>{if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw new Error('Expected an empty object');return lobbyToolState.current;}},{name:'start_big_circle_practice',description:'Start free practice with bots. No wallets or funds are used.',inputSchema:{type:'object',properties:{},additionalProperties:false},execute:(input:unknown)=>{if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw new Error('Expected an empty object');practice();return {mode:'practice',fundsUsed:false};}}])void Promise.resolve(context.registerTool(tool,{signal:control.signal})).catch(()=>{});return()=>control.abort();},[practice]);
@@ -96,7 +97,7 @@ export default function GameApp(){
 
   async function recover(epoch:string,arena:number){await action('Recovering timed-out arena',async()=>{if(!addresses.escrow)throw new Error('Escrow unavailable');await wallet.send(addresses.escrow,encodeFunctionData({abi:escrowAbi,functionName:'recoverArena',args:[BigInt(epoch),BigInt(arena)]}));setNotice('Arena recovered. Its entry fees and deposits can now be claimed.');await refresh();});}
 
-  return <div className="app"><header><a className="brand" href="/" aria-label="Big Circle home"><span className="brand-symbol"><CircleDot size={30}/></span> BIG CIRCLE <span className="beta">BETA</span></a><nav><button className="nav-active" onClick={()=>document.getElementById('arena')?.scrollIntoView({block:'center'})}>Play</button><button onClick={()=>setModal('rules')}>How to play</button></nav><div className="header-right"><span className="network">◈ Arc testnet</span><button className="wallet-btn" onClick={()=>{setModal('wallet');void refreshBalances();}}><Wallet size={16}/>{wallet.address?short(wallet.address):'Connect wallet'}</button></div></header>
+  return <div className="app"><header><a className="brand" href="#" aria-label="Big Circle home"><span className="brand-symbol"><CircleDot size={30}/></span> BIG CIRCLE <span className="beta">BETA</span></a><nav><button className="nav-active" onClick={()=>document.getElementById('arena')?.scrollIntoView({block:'center'})}>Play</button><button onClick={()=>setModal('rules')}>How to play</button></nav><div className="header-right"><span className="network">◈ Arc testnet</span><button className="wallet-btn" onClick={()=>{setModal('wallet');void refreshBalances();}}><Wallet size={16}/>{wallet.address?short(wallet.address):'Connect wallet'}</button></div></header>
 
     <main><div className="page-heading"><div><div className="eyebrow">SMALL CIRCLE. BIG AMBITIONS.</div><h1>Own your orbit<span>.</span></h1><p>Outmaneuver. Absorb. Be the last circle standing.</p></div><div className="test-tag"><ShieldCheck size={17}/><span>All skill. Only test tokens.<small>Arc testnet preview</small></span></div></div>
 
