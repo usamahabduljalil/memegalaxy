@@ -1,8 +1,10 @@
 import './polyfills';
-import React from 'react';
+import React,{lazy,Suspense} from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './Experience';
+const isGalaxy=import.meta.env.DEV||import.meta.env.VITE_MEMEGALAXY_LIVE==='true'||new URLSearchParams(location.search).get('preview')==='memegalaxy';
+const App=lazy(()=>isGalaxy?import('./galaxy/GalaxyExperience'):import('./Experience'));
 import './style.css';
 import './game.css';
 import './orbit-theme.css';
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
+document.title=isGalaxy?'MEMEGalaxy — Human instinct. Machine ambition.':'Big Circle — Legacy Arc beta';
+createRoot(document.getElementById('root')!).render(<React.StrictMode><Suspense fallback={<div role="status" style={{padding:32}}>Opening your arena…</div>}><App /></Suspense></React.StrictMode>);

@@ -1,0 +1,20 @@
+import 'dotenv/config';
+import { createPublicClient,createWalletClient,encodeDeployData,encodeFunctionData,http,keccak256,erc20Abi,type Address,type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { existsSync,mkdirSync,readFileSync,writeFileSync,renameSync } from 'node:fs';
+import { robinhoodTestnet } from '../shared/galaxy/chain';
+import { compile } from './compile-contracts';
+async function main(){
+ const deployer=process.env.DEPLOYER_PRIVATE_KEY as Hex,registrar=process.env.REGISTRAR_PRIVATE_KEY as Hex,result=process.env.RESULT_SIGNER_PRIVATE_KEY as Hex;if(!deployer||!registrar||!result)throw new Error('Configure the existing test-only deployment keys locally');
+ const account=privateKeyToAccount(deployer),operator=privateKeyToAccount(registrar).address,resultSigner=privateKeyToAccount(result).address;const chain=createPublicClient({chain:robinhoodTestnet,transport:http(process.env.ROBINHOOD_RPC_URL)}),wallet=createWalletClient({account,chain:robinhoodTestnet,transport:http(process.env.ROBINHOOD_RPC_URL)});if(await chain.getChainId()!==46630)throw new Error('Robinhood testnet only');if(await chain.getBalance({address:account.address})===0n)throw new Error(`Fund deployer ${account.address} with Robinhood testnet ETH`);
+ const path='.local/memegalaxy-deployment-progress.json',configuration={chainId:46630,deployer:account.address,operator,resultSigner};mkdirSync('.local',{recursive:true});type Attempt={hash:Hex;raw?:Hex;address?:Address;confirmed?:boolean};const progress:{configuration:typeof configuration;attempts:Record<string,Attempt>}=existsSync(path)?JSON.parse(readFileSync(path,'utf8')):{configuration,attempts:{}};if(JSON.stringify(progress.configuration)!==JSON.stringify(configuration))throw new Error('Saved deployment configuration mismatch');const save=()=>{writeFileSync(path+'.tmp',JSON.stringify(progress,null,2),{mode:0o600});renameSync(path+'.tmp',path);};
+ async function send(name:string,data:Hex,to?:Address,value?:bigint){let a=progress.attempts[name];if(!a){const raw=await wallet.signTransaction(await wallet.prepareTransactionRequest({data,...(to?{to}:{}),...(value?{value}:{})}));a={hash:keccak256(raw),raw};progress.attempts[name]=a;save();}if(!a.confirmed&&a.raw)try{await chain.sendRawTransaction({serializedTransaction:a.raw});}catch{}const receipt=await chain.waitForTransactionReceipt({hash:a.hash,timeout:120000});if(receipt.status!=='success')throw new Error(`${name} reverted`);a.confirmed=true;a.address=receipt.contractAddress??undefined;delete a.raw;save();console.log(name,a.hash);return receipt;}
+ if(await chain.getBalance({address:operator})<5000000000000000n)await send('Fund epoch coordinator gas','0x',operator,5000000000000000n);
+ const artifacts=compile();const deploy=async(name:string,args:unknown[]=[])=>{const r=await send(name,encodeDeployData({...artifacts[name],args}));if(!r.contractAddress)throw new Error('Missing deployment address');return r.contractAddress;};
+ const token=await deploy('TestMemeGalaxy',[account.address]),usdc=await deploy('TestGalaxyUSDC'),faucet=await deploy('MemeGalaxyFaucet',[token,usdc]),escrow=await deploy('MemeGalaxyEscrow',[token,usdc,account.address,operator,operator,account.address,resultSigner]);
+ await send('Fund token faucet',encodeFunctionData({abi:erc20Abi,functionName:'transfer',args:[faucet,1000000000n*10n**18n]}),token);
+ await send('Fund test USDC faucet',encodeFunctionData({abi:erc20Abi,functionName:'transfer',args:[faucet,1000000n*10n**6n]}),usdc);
+ await send('Seed test prize pool',encodeFunctionData({abi:erc20Abi,functionName:'transfer',args:[escrow,1000n*10n**6n]}),usdc);
+ const metadata={...configuration,token,usdc,faucet,escrow,seededTestUSDC:'1000',deploymentBlock:(await chain.getTransactionReceipt({hash:progress.attempts.MemeGalaxyEscrow.hash})).blockNumber.toString()};mkdirSync('deploy',{recursive:true});writeFileSync('deploy/robinhood-testnet.json',JSON.stringify(metadata,null,2));console.log('Public deployment metadata saved. Deployer key remains local.');
+}
+main().catch(e=>{console.error(e.shortMessage??e.message??'Deployment failed');process.exitCode=1;});

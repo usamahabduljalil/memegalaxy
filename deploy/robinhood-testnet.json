@@ -1,0 +1,12 @@
+{
+  "chainId": 46630,
+  "deployer": "0x82EacD27A39A68f78e43a1C2e3F3b920b29a7652",
+  "operator": "0x66845441Bb1c30929A654063A71599Ce8602f77A",
+  "resultSigner": "0x4f8e086668753bDCaa636a103b58FC9a45bD62BD",
+  "token": "0xf8ce23c2ffa7ec6946dd663b786210336d46cfbc",
+  "usdc": "0xd8137397cd87b9ea9efc7f48ae7f02beb6908a49",
+  "faucet": "0xc9b216dd744f3bcdaf3a1f7b1da0bf44602f8748",
+  "escrow": "0x9abc7283af8bcb13b617ce8519fa74b3ba00da75",
+  "seededTestUSDC": "1000",
+  "deploymentBlock": "122527159"
+}

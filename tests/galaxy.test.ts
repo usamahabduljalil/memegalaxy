@@ -1,0 +1,26 @@
+import { describe,it,expect } from 'vitest';
+import { createWorld,applyAction,tick,massOf,observe,connection,rankings } from '../shared/galaxy/engine';
+import { arenaAllocation, RULESET_ID } from '../shared/galaxy/rules';
+import { replay } from '../shared/galaxy/replay';
+import { parseStrategy,control } from '../shared/galaxy/agent';
+const entrants=[{id:'a',name:'A',controller:'human' as const},{id:'b',name:'B',controller:'agent' as const}];
+const empty=()=>{const w=createWorld('prize',42,entrants);w.food=[];w.objects=[];w.cells[0].x=-500;w.cells[1].x=500;w.cells.forEach(c=>c.y=0);w.players.forEach(p=>p.protectedUntil=0);return w;};
+describe('MEMEGalaxy authoritative simulation',()=>{
+ it('starts humans and agents at equal mass',()=>{const w=empty();expect(w.cells.map(c=>c.mass)).toEqual([100,100]);});
+ it('splits without minting mass and cannot immediately merge',()=>{const w=empty();expect(applyAction(w,'a',{seq:0,type:'SPLIT',x:1,y:0})).toBe(true);expect(w.cells.filter(c=>c.owner==='a')).toHaveLength(2);expect(massOf(w,'a')).toBe(100);tick(w);expect(w.cells.filter(c=>c.owner==='a')).toHaveLength(2);});
+ it('requires size advantage and containment',()=>{const w=empty();w.cells[0].x=0;w.cells[1].x=0;tick(w);expect(w.cells).toHaveLength(2);w.cells[0].mass=130;tick(w);expect(w.cells).toHaveLength(1);expect(w.cells[0].mass).toBe(230);expect(w.finished).toBe(true);});
+ it('respects initial protection',()=>{const w=empty();w.players[1].protectedUntil=90;w.cells[0].mass=300;w.cells[1].x=w.cells[0].x;w.cells[1].y=w.cells[0].y;tick(w);expect(w.cells).toHaveLength(2);});
+ it('burns exactly two mass per ejection and rate-limits',()=>{const w=empty();applyAction(w,'a',{seq:0,type:'EJECT',x:1,y:0});expect(massOf(w,'a')+w.pellets[0].mass).toBe(98);expect(applyAction(w,'a',{seq:1,type:'EJECT',x:1,y:0})).toBe(false);});
+ it('rejects invalid and replayed actions',()=>{const w=empty();expect(applyAction(w,'a',{seq:0,type:'MOVE',x:Infinity,y:0})).toBe(false);expect(applyAction(w,'a',{seq:0,type:'MOVE',x:1,y:0})).toBe(true);expect(applyAction(w,'a',{seq:0,type:'MOVE',x:-1,y:0})).toBe(false);});
+ it('forfeits disconnected players after 20 seconds',()=>{const w=empty();connection(w,'a',false);for(let i=0;i<600;i++)tick(w);expect(w.players[0].alive).toBe(false);expect(rankings(w)[0].id).toBe('b');});
+ it('shrinks beyond ten minutes instead of imposing a match cutoff',()=>{const w=empty();w.tick=18001;w.cells.forEach(c=>{c.x=0;c.y=0;c.mass=100000;});tick(w);expect(w.safeHalf).toBeLessThan(w.size/4);expect(w.finished).toBe(false);});
+ it('never exposes hidden cell positions or random state',()=>{const w=empty();w.cells[1].x=3500;const o=observe(w,'a');expect(o.cells.some(c=>c.owner==='b')).toBe(false);expect('rng'in o).toBe(false);expect('intent'in o.cells[0]).toBe(false);});
+ it('replays accepted inputs deterministically',()=>{const header={version:2 as const,rulesHash:RULESET_ID,seed:42,mode:'prize' as const,capacity:100,entrants};const events=[{tick:0,id:'a',action:{seq:0,type:'MOVE' as const,x:1,y:0}}];expect(replay(header,events,120)).toEqual(replay(header,events,120));});
+ it('balances larger rooms',()=>{expect(arenaAllocation(9)).toEqual([]);expect(arenaAllocation(10)).toEqual([10]);expect(arenaAllocation(100)).toEqual([100]);expect(arenaAllocation(101)).toEqual([51,50]);expect(arenaAllocation(499)).toEqual([100,100,100,100,99]);expect(arenaAllocation(500)).toEqual([100,100,100,100,100]);expect(()=>arenaAllocation(501)).toThrow();});
+ it('validates model output and ignores absent chase targets',()=>{expect(()=>parseStrategy({type:'TELEPORT'})).toThrow();expect(()=>parseStrategy({type:'MOVE',x:5,y:0})).toThrow();expect(control(observe(empty(),'a'),{type:'CHASE',target:999},1).type).toBe('MOVE');});
+ it('nova bursting conserves mass and respects the cell cap',()=>{const w=empty(),c=w.cells[0];c.mass=400;w.objects=[{id:9000,x:c.x,y:c.y,kind:'nova',feeds:0}];tick(w);expect(massOf(w,'a')).toBe(400);expect(w.cells.filter(c=>c.owner==='a')).toHaveLength(4);expect(w.objects).toHaveLength(0);});
+ it('merges eligible overlapping owned cells without creating mass',()=>{const w=empty(),c=w.cells[0];w.cells.push({...c,id:9999,mass:50,mergeAt:0});tick(w);expect(w.cells.filter(c=>c.owner==='a')).toHaveLength(1);expect(massOf(w,'a')).toBe(150);});
+ it('respawns only in free play',()=>{const w=createWorld('free',9,entrants);w.cells=w.cells.filter(c=>c.owner!=='a');tick(w);expect(w.players[0].alive).toBe(false);for(let i=0;i<90;i++)tick(w);expect(w.players[0].alive).toBe(true);expect(massOf(w,'a')).toBeGreaterThanOrEqual(100);});
+ it('ranks simultaneous elimination using pre-elimination mass',()=>{const w=empty();w.cells[0].mass=9;w.cells[1].mass=8;tick(w);expect(w.finished).toBe(true);expect(rankings(w)[0].id).toBe('a');});
+ it('does not mint mass through a three-cell eating chain',()=>{const w=createWorld('prize',99,[...entrants,{id:'c',name:'C',controller:'human'}]);w.food=[];w.objects=[];w.players.forEach(p=>p.protectedUntil=0);w.cells.forEach((c,i)=>{c.x=0;c.y=0;c.mass=[400,200,100][i];});tick(w);expect(w.cells.reduce((n,c)=>n+c.mass,0)).toBe(700);});
+});

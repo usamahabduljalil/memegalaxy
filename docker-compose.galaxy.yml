@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: memegalaxy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["5433:5432"]
+    volumes: ["galaxy-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d memegalaxy"]
+      interval: 5s
+      retries: 10
+  game:
+    build: .
+    env_file: deploy/memegalaxy.env.example
+    environment:
+      SERVICE_ROLE: galaxy-game
+      MEMEGALAXY_DATABASE_URL: postgresql://postgres:postgres@db:5432/memegalaxy
+      MEMEGALAXY_ADMISSION_SECRET: local-development-only-change-before-deployment
+    ports: ["2568:2568"]
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  galaxy-data:

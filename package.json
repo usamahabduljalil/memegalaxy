@@ -1,5 +1,5 @@
 {
-  "name": "big-circle",
+  "name": "memegalaxy",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,10 +17,19 @@
     "deploy:contracts": "tsx scripts/deploy-contracts.ts",
     "test:sockets": "tsx scripts/socket-load-test.ts",
     "replay:verify": "tsx scripts/verify-replay.ts",
-    "check:readiness": "tsx scripts/check-readiness.ts"
+    "check:readiness": "tsx scripts/check-readiness.ts",
+    "galaxy:server": "tsx server/galaxy/index.ts",
+    "galaxy:agent": "tsx scripts/run-agent.ts",
+    "galaxy:test:contracts": "tsx scripts/test-galaxy-contracts.ts",
+    "galaxy:test:load": "tsx scripts/galaxy-load-test.ts",
+    "galaxy:worker": "tsx server/galaxy/worker.ts",
+    "galaxy:deploy": "tsx scripts/deploy-galaxy.ts",
+    "galaxy:test:sockets": "tsx scripts/galaxy-socket-test.ts"
   },
   "dependencies": {
     "@colyseus/core": "^0.16.24",
+    "@colyseus/redis-driver": "^0.16.0",
+    "@colyseus/redis-presence": "^0.16.0",
     "@colyseus/schema": "^3.0.0",
     "@colyseus/ws-transport": "^0.16.5",
     "@openzeppelin/contracts": "5.3.0",

@@ -1,0 +1,5 @@
+import { it,expect } from 'vitest';
+import { createWorld,observe,tick } from '../shared/galaxy/engine';
+import { encodeObservation,decodeObservation } from '../shared/galaxy/wire';
+it('round-trips the limited observation and sends stationary food only once',()=>{const w=createWorld('free',7,[{id:'a',name:'A',controller:'human'}]);const first=observe(w,'a'),a=encodeObservation(first),decoded=decodeObservation(JSON.stringify(a.frame));expect(decoded.cells).toEqual(first.cells);expect(decoded.food).toEqual(first.food);const b=encodeObservation(first,a.visible);expect(b.frame.food).toEqual([]);expect(decodeObservation(b.frame,decoded).food).toEqual(first.food);});
+it('removes food that has left visibility and never leaks RNG state',()=>{const w=createWorld('free',9,[{id:'a',name:'A',controller:'human'}]);const first=encodeObservation(observe(w,'a'));w.cells[0].x=3500;tick(w);const second=encodeObservation(observe(w,'a'),first.visible),decoded=decodeObservation(second.frame,decodeObservation(first.frame));expect(decoded.food.map(f=>f.id).sort()).toEqual(observe(w,'a').food.map(f=>f.id).sort());expect('rng'in decoded).toBe(false);});
