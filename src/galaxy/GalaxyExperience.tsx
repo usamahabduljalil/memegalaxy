@@ -1,6 +1,5 @@
 import { lazy,Suspense,useEffect,useState } from 'react';
 import { ArrowUpRight,Orbit,Radio,ChevronRight,Sparkles,Bot,Shield,Globe2 } from 'lucide-react';
-import './galaxy.css';
 const Arena=lazy(()=>import('./GalaxyArena'));
 const Legacy=lazy(()=>import('../GameScreen'));
 const Stats=lazy(()=>import('./GalaxyStats'));

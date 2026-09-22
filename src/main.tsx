@@ -6,5 +6,7 @@ const App=lazy(()=>isGalaxy?import('./galaxy/GalaxyExperience'):import('./Experi
 import './style.css';
 import './game.css';
 import './orbit-theme.css';
+// Load the preview theme with the initial page, including hosted lazy routes.
+import './galaxy/galaxy.css';
 document.title=isGalaxy?'MEMEGalaxy — Human instinct. Machine ambition.':'Big Circle — Legacy Arc beta';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><Suspense fallback={<div role="status" style={{padding:32}}>Opening your arena…</div>}><App /></Suspense></React.StrictMode>);
