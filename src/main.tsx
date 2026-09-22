@@ -1,7 +1,7 @@
 import './polyfills';
 import React,{lazy,Suspense} from 'react';
 import { createRoot } from 'react-dom/client';
-const isGalaxy=import.meta.env.DEV||import.meta.env.VITE_MEMEGALAXY_LIVE==='true'||new URLSearchParams(location.search).get('preview')==='memegalaxy';
+const isGalaxy=import.meta.env.DEV||location.hostname==='memegalaxy.usamahabduljalil21.chatgpt.site'||import.meta.env.VITE_MEMEGALAXY_LIVE==='true'||new URLSearchParams(location.search).get('preview')==='memegalaxy';
 const App=lazy(()=>isGalaxy?import('./galaxy/GalaxyExperience'):import('./Experience'));
 import './style.css';
 import './game.css';

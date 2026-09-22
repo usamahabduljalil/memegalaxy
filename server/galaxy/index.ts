@@ -13,12 +13,12 @@ import { GalaxyRoom,roomCreationKey } from './room';
 import { owner,agent,hashKey,issueAdmission,publicPlayerId } from './auth';
 import { db,persistent,migrateGalaxy } from './store';
 import { authorizeEntry,myPrizeEntries,prizeAdmission,prizeLobby,recordTransaction } from './prizes';
-import { deployment } from './chain';
+import { deployment,paid } from './chain';
 const origins=(process.env.MEMEGALAXY_WEB_ORIGINS??process.env.WEB_ORIGINS??'http://127.0.0.1:5173,http://localhost:5173').split(',');
 const app=express();app.disable('x-powered-by');app.set('trust proxy',1);app.use(cors({origin(origin,done){done(null,!origin||origins.includes(origin));}}));app.use(express.json({limit:'8kb'}));app.use(rateLimit({windowMs:60000,limit:120}));
 const route=(fn:(req:express.Request,res:express.Response)=>Promise<unknown>):express.RequestHandler=>(req,res,next)=>{Promise.resolve(fn(req,res)).catch(next);};
-app.get('/health',(_req,res)=>res.json({ok:true,product:'MEMEGalaxy',protocol:2,chainId:46630,persistent,paidEnabled:false}));
-app.get('/api/v2/lobby',route(async(_req,res)=>res.json({chainId:46630,paidEnabled:false,message:'Free play is open. Prize matches await testnet deployment and release verification.',rooms:(await matchMaker.query({name:'galaxy'})).map(r=>({id:r.roomId,players:r.clients,mode:r.metadata?.mode})),capacity:100})));
+app.get('/health',(_req,res)=>res.json({ok:true,product:'MEMEGalaxy',protocol:2,chainId:46630,persistent,paidEnabled:paid&&persistent}));
+app.get('/api/v2/lobby',route(async(_req,res)=>res.json({chainId:46630,paidEnabled:paid&&persistent,message:paid&&persistent?'Testnet prize registration is open. All prizes are test assets.':'Free play is open. Prize matches await release verification.',rooms:(await matchMaker.query({name:'galaxy'})).map(r=>({id:r.roomId,players:r.clients,mode:r.metadata?.mode})),capacity:100})));
 async function freeRoom(){const rooms=await matchMaker.query({name:'galaxy',locked:false});const room=rooms.find(r=>r.metadata?.mode==='free'&&r.clients<100);return room?.roomId??(await matchMaker.createRoom('galaxy',{mode:'free',serviceKey:roomCreationKey})).roomId;}
 app.post('/api/v2/free/admission',rateLimit({windowMs:60000,limit:10}),route(async(req,res)=>{const {name}=z.object({name:z.string().trim().min(1).max(24).regex(/^[\p{L}\p{N} _.-]+$/u).default('Explorer')}).parse(req.body);const auth=req.headers.authorization?await owner(req):null;const id=auth?publicPlayerId(auth.id):`guest:${randomUUID()}`,roomId=await freeRoom();res.json({roomId,token:await issueAdmission({id,name,controller:'human',owner:auth?.id??id,roomId,scope:'free'})});}));
 app.get('/api/v2/agents',route(async(req,res)=>{const auth=await owner(req);const {rows}=await db.query('SELECT id,name,description,provider,personality,(key_hash IS NOT NULL) AS credential_active FROM mg_agents WHERE owner=$1 ORDER BY created_at',[auth.id]);res.json(rows);}));

@@ -20,17 +20,17 @@ The v2 ruleset is `memegalaxy-v2.0.0`. Simulation state and client observations 
 
 ## Release gates
 
-Prize admission remains disabled until new contracts, worker settlement, controller binding, wallet entry UX and testnet integration checks are complete. The new frontend accurately labels this state. Real-money activity remains disabled. Pons funding is not represented as automatic USDC revenue.
+Testnet prize admission is enabled for controlled integration testing after explicit owner approval. Hosted wallet onboarding, mixed human/agent matches and full live recovery drills remain release gates. Real-money activity remains disabled. Pons funding is not represented as automatic USDC revenue.
 
 Before cutover: reconcile and pause new Arc entries, retain old cancellation/claims, launch separate Robinhood staging services, complete funded human/agent matches, measure five 100-player rooms, verify mobile FPS and hosted Privy login. Never reuse a chain-specific escrow address on another network.
 
 ## Staging and verification — 22 September 2026
 
 - Local development opens MEMEGalaxy. Production retains the legacy landing page until `VITE_MEMEGALAXY_LIVE=true`; the new experience is available with `?preview=memegalaxy`. This is a preview route, not a separate security boundary.
-- The authoritative staging service is `https://memegalaxy-staging-production.up.railway.app`. Prize admission remains disabled. The new testnet contract addresses and deployment transaction hashes are in `deploy/robinhood-testnet.json`. The vault was seeded with 1,000 mock test USDC; this is not launchpad revenue.
+- The authoritative staging service is `https://memegalaxy-staging-production.up.railway.app`. Prize admission and the worker are enabled; epoch 1 is confirmed onchain. The new testnet contract addresses and deployment transaction hashes are in `deploy/robinhood-testnet.json`. The vault was seeded with 1,000 mock test USDC; this is not launchpad revenue.
 - 48 existing gameplay/protocol/replay tests passed, plus four new runner tests covering reconnect sequencing, invalid responses, slow providers, and expired decisions. TypeScript is checked before packaging.
 - Previous local socket verification sustained 500 connections in five rooms with p95 processing of 25.674 ms. The slowest connection received about eight updates/second; the nominal ten-update target still needs production load verification. No representative physical mobile device FPS result has been recorded.
 - Test contracts passed twelve local scenarios. Hosted human/agent prize matches, payout/recovery drills, provider-backed live agents, and complete mobile onboarding remain release gates.
-- A separate worker service exists but its database and test-only signing-key references still await destination-specific approval. Existing staging login/database references are already approved and configured. The deployer key stays local.
+- The owner approved the separate worker's database and test-only signing-key references. Both services are configured; deployed registrar/operator/result roles and their test-ETH balances were verified using `scripts/galaxy-readiness.ts`. The deployer key stays local.
 
 The runner uses the agent profile personality unless explicitly overridden. Model calls never block movement; failed, malformed, expired, and hidden-target decisions fall back to the local controller. Revoking the agent credential ends active access after the next server credential check. All provider credentials remain on the owner's runner.

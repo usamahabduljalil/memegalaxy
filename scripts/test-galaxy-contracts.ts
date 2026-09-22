@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import ganache from 'ganache';
-import { createPublicClient,createWalletClient,custom,defineChain,keccak256,type Address,type Hex } from 'viem';
+import { createPublicClient,createWalletClient,custom,defineChain,keccak256,encodeDeployData,encodeFunctionData,type Address,type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { compile } from './compile-contracts';
 import { galaxyEntryTypes as entryTypes } from '../shared/galaxy/chain';
@@ -9,10 +9,11 @@ const artifacts=compile();
 const provider=ganache.provider({logging:{quiet:true},wallet:{totalAccounts:110},chain:{chainId:31337,hardfork:'shanghai'},miner:{blockGasLimit:30000000}});
 const network=defineChain({id:31337,name:'Local',nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},rpcUrls:{default:{http:['http://localhost']}}});
 const accounts=Object.values(provider.getInitialAccounts()).map((a:any)=>privateKeyToAccount(a.secretKey as Hex));
-const client=createPublicClient({chain:network,transport:custom(provider as any),cacheTime:0});
+const client=createPublicClient({chain:network,transport:custom(provider as any),cacheTime:0,pollingInterval:10});
 const wallets=accounts.map(account=>createWalletClient({account,chain:network,transport:custom(provider as any)}));
-async function deploy(name:string,args:unknown[]=[]){const hash=await wallets[0].deployContract({...artifacts[name],args,gas:15000000n});const r=await client.waitForTransactionReceipt({hash});assert.equal(r.status,'success');return r.contractAddress!;}
-async function send(index:number,address:Address,abi:any,fn:string,args:unknown[]=[]){const hash=await wallets[index].writeContract({address,abi,functionName:fn,args,gas:20000000n});const r=await client.waitForTransactionReceipt({hash});assert.equal(r.status,'success',`${fn} reverted`);return r;}
+// Ganache's eager miner completes each submitted transaction before returning its hash.
+async function deploy(name:string,args:unknown[]=[]){const hash=await provider.request({method:'eth_sendTransaction',params:[{from:accounts[0].address,data:encodeDeployData({...artifacts[name],args}),gas:'0xe4e1c0'}]}) as Hex;const r=await client.getTransactionReceipt({hash});assert.equal(r.status,'success');return r.contractAddress!;}
+async function send(index:number,address:Address,abi:any,fn:string,args:unknown[]=[]){const hash=await provider.request({method:'eth_sendTransaction',params:[{from:accounts[index].address,to:address,data:encodeFunctionData({abi,functionName:fn,args}),gas:'0x1312d00'}]}) as Hex;const r=await client.getTransactionReceipt({hash});assert.equal(r.status,'success',`${fn} reverted`);return r;}
 async function fails(index:number,address:Address,abi:any,fn:string,args:unknown[]=[]){await assert.rejects(()=>client.simulateContract({account:accounts[index],address,abi,functionName:fn,args}));}
 const tokenAbi=artifacts.TestMemeGalaxy.abi,stableAbi=artifacts.MockUSDC.abi,abi=artifacts.MemeGalaxyEscrow.abi;
 let checks=0;const pass=(label:string)=>{checks++;console.log(`PASS ${label}`);};
