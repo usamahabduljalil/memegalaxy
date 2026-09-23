@@ -10,6 +10,8 @@ const abi = parseAbi([
   'function epochInfo(uint256) view returns (uint8,uint256,uint256,uint256,uint256,uint256,bytes32,bytes32,uint256)',
   'function availablePrize() view returns (uint256)',
   'function entriesPaused() view returns (bool)',
+  'function roster(uint256) view returns (address[])',
+  'function entryInfo(uint256,address) view returns (uint256,uint256,uint256,bool,bool)',
   'event EpochStarted(uint256 indexed id,uint256 deadline,uint256 budget,bytes32 seed)',
   'event EpochClosed(uint256 indexed id,uint256 endedAt)',
   'event RolledOver(uint256 indexed id,uint256 deadline)'
@@ -26,6 +28,11 @@ console.log(JSON.stringify({ parentLatest: parentLatest.number.toString(), paren
 for (let id = 1n; id <= current; id++) {
   const e = await client.readContract({ address, abi, functionName: 'epochInfo', args: [id] });
   console.log(JSON.stringify({ id: id.toString(), status: e[0], deadline: new Date(Number(e[1])*1000).toISOString(), recovery: e[2].toString(), count: e[3].toString(), arenas: e[4].toString(), finished: e[5].toString(), seed: e[7], entropyBlock: e[8].toString() }));
+  if (e[3] > 0n) {
+    const roster = await client.readContract({ address, abi, functionName:'roster', args:[id] });
+    const claims = await Promise.all(roster.map(wallet => client.readContract({address,abi,functionName:'entryInfo',args:[id,wallet]})));
+    console.log(JSON.stringify({id:id.toString(),refundStatus:{registered:roster.length,tokenReturned:claims.filter(v=>v[3]).length,usdcReturnedOrPaid:claims.filter(v=>v[4]).length}}));
+  }
   if (e[8] > 0n) {
     const [l1, l2] = await Promise.all([parent.getBlock({blockNumber:e[8]}), client.getBlock({blockNumber:e[8]})]);
     console.log(JSON.stringify({ entropyBlock: e[8].toString(), parentTime: new Date(Number(l1.timestamp)*1000).toISOString(), parentHash:l1.hash, rollupTime:new Date(Number(l2.timestamp)*1000).toISOString(), rollupHash:l2.hash }));
