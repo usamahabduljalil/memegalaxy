@@ -12,6 +12,7 @@ const abi = parseAbi([
   'function entriesPaused() view returns (bool)',
   'function roster(uint256) view returns (address[])',
   'function entryInfo(uint256,address) view returns (uint256,uint256,uint256,bool,bool)',
+  'function arenaInfo(uint256,uint256) view returns ((uint256 budget,uint8 status,address[3] winners,uint256 startedAt))',
   'event EpochStarted(uint256 indexed id,uint256 deadline,uint256 budget,bytes32 seed)',
   'event EpochClosed(uint256 indexed id,uint256 endedAt)',
   'event RolledOver(uint256 indexed id,uint256 deadline)'
@@ -31,8 +32,9 @@ for (let id = 1n; id <= current; id++) {
   if (e[3] > 0n) {
     const roster = await client.readContract({ address, abi, functionName:'roster', args:[id] });
     const claims = await Promise.all(roster.map(wallet => client.readContract({address,abi,functionName:'entryInfo',args:[id,wallet]})));
-    console.log(JSON.stringify({id:id.toString(),refundStatus:{registered:roster.length,tokenReturned:claims.filter(v=>v[3]).length,usdcReturnedOrPaid:claims.filter(v=>v[4]).length}}));
+    console.log(JSON.stringify({id:id.toString(),claimStatus:{registered:roster.length,tokenReturned:claims.filter(v=>v[3]).length,usdcClaimed:claims.filter(v=>v[4]).length,winnerCount:claims.filter(v=>v[2]>0n).length,winnerRewardsUSDC:claims.filter(v=>v[2]>0n).map(v=>formatUnits(v[2],6)).sort((a,b)=>Number(b)-Number(a))}}));
   }
+  for(let arena=1n;arena<=e[4];arena++){const a=await client.readContract({address,abi,functionName:'arenaInfo',args:[id,arena]});console.log(JSON.stringify({id:id.toString(),arena:arena.toString(),arenaStatus:a.status,budgetUSDC:formatUnits(a.budget,6),winnerSlots:a.winners.filter(w=>w!=='0x0000000000000000000000000000000000000000').length}));}
   if (e[8] > 0n) {
     const [l1, l2] = await Promise.all([parent.getBlock({blockNumber:e[8]}), client.getBlock({blockNumber:e[8]})]);
     console.log(JSON.stringify({ entropyBlock: e[8].toString(), parentTime: new Date(Number(l1.timestamp)*1000).toISOString(), parentHash:l1.hash, rollupTime:new Date(Number(l2.timestamp)*1000).toISOString(), rollupHash:l2.hash }));
