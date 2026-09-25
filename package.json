@@ -21,6 +21,7 @@
     "galaxy:server": "tsx server/galaxy/index.ts",
     "galaxy:agent": "tsx scripts/run-agent.ts",
     "galaxy:test:contracts": "tsx scripts/test-galaxy-contracts.ts",
+    "galaxy:test:contracts:v3": "tsx scripts/test-galaxy-contracts-v3.ts",
     "galaxy:test:load": "tsx scripts/galaxy-load-test.ts",
     "galaxy:worker": "tsx server/galaxy/worker.ts",
     "galaxy:deploy": "tsx scripts/deploy-galaxy.ts",

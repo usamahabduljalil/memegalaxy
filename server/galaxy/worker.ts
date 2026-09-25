@@ -18,7 +18,56 @@ async function cycle(){await reconcile();const e=await epoch();if(!e||e.status==
  const now=Number((await chain.getBlock()).timestamp);const wallets=await read('roster',[e.id]) as Address[];
  for(const wallet of wallets){const hash=await read('controllers',[e.id,wallet]);const row=(await db.query('SELECT * FROM mg_entries WHERE deployment=$1 AND epoch=$2 AND wallet=$3 AND controller_hash=$4',[deployment,e.id.toString(),wallet.toLowerCase(),hash])).rows[0];if(!row)throw new Error('Confirmed entry is missing its frozen controller record');await db.query('UPDATE mg_entries SET confirmed=true WHERE deployment=$1 AND epoch=$2 AND wallet=$3',[deployment,e.id.toString(),wallet.toLowerCase()]);}
  await db.query('UPDATE mg_entries SET confirmed=false WHERE deployment=$1 AND epoch=$2 AND NOT(wallet=ANY($3::text[]))',[deployment,e.id.toString(),wallets.map(w=>w.toLowerCase())]);
- if(e.status===1){if(now<e.deadline)return;if(e.count<10||BigInt(await read('availablePrize'))<100000000n||await read('entriesPaused')){await transact(`roll:${e.id}:${e.deadline}`,'rollover',[e.id],e.id);return;}if(!paid)return;if(e.entropyBlock===0n){await transact(`entropy:${e.id}:${e.deadline}`,'requestEntropy',[e.id],e.id);return;}const finalized=await parent.getBlock({blockTag:'finalized'});if(finalized.number<=e.entropyBlock)return;if(finalized.number>e.entropyBlock+256n){await transact(`abandon:${e.id}`,'abandonExpiredEntropy',[e.id],e.id);return;}const row=(await db.query('SELECT secret FROM mg_epochs WHERE deployment=$1 AND id=$2',[deployment,e.id.toString()])).rows[0];if(!row)throw new Error('Missing committed secret');const entropy=await parent.getBlock({blockNumber:e.entropyBlock}),seed=keccak256(concatHex([row.secret,entropy.hash!]));const ordered=[...wallets].sort((a,b)=>keccak256(concatHex([seed,a])).localeCompare(keccak256(concatHex([seed,b]))));await transact(`start:${e.id}`,'startEpoch',[e.id,row.secret,ordered],e.id);return;}
+ const entropyMode=process.env.MEMEGALAXY_ENTROPY_SOURCE??'finalized-parent';
+ if(entropyMode!=='contract'&&entropyMode!=='finalized-parent')throw new Error('Unsupported entropy source');
+ if(e.status===1){
+  if(now<e.deadline)return;
+  if(e.count<10||BigInt(await read('availablePrize'))<100000000n||await read('entriesPaused')){
+   await transact(`roll:${e.id}:${e.deadline}`,'rollover',[e.id],e.id);return;
+  }
+  if(!paid)return;
+  if(e.entropyBlock===0n){
+   await transact(`entropy:${e.id}:${e.deadline}`,'requestEntropy',[e.id],e.id);return;
+  }
+  let entropyHash:Hex;
+  if(entropyMode==='contract'){
+   // The view executes BLOCKHASH in the same rollup context as startEpoch.
+   entropyHash=await read('entropyHash',[e.id]) as Hex;
+   if(entropyHash===`0x${'0'.repeat(64)}`){
+    if((await parent.getBlock()).number>e.entropyBlock+256n)
+     await transact(`abandon:${e.id}`,'abandonExpiredEntropy',[e.id],e.id);
+    return;
+   }
+  }else{
+   // Compatibility path for the already deployed v2 escrow, which has no entropyHash view.
+   const finalized=await parent.getBlock({blockTag:'finalized'});
+   if(finalized.number<=e.entropyBlock)return;
+   if(finalized.number>e.entropyBlock+256n){
+    await transact(`abandon:${e.id}`,'abandonExpiredEntropy',[e.id],e.id);return;
+   }
+   entropyHash=(await parent.getBlock({blockNumber:e.entropyBlock})).hash!;
+  }
+  const row=(await db.query('SELECT secret FROM mg_epochs WHERE deployment=$1 AND id=$2',[deployment,e.id.toString()])).rows[0];
+  if(!row)throw new Error('Missing committed secret');
+  const seed=keccak256(concatHex([row.secret,entropyHash]));
+  const ordered=[...wallets].sort((a,b)=>keccak256(concatHex([seed,a])).localeCompare(keccak256(concatHex([seed,b]))));
+  if(entropyMode==='contract')
+   await db.query('UPDATE mg_epochs SET entropy_hash=$3 WHERE deployment=$1 AND id=$2',[deployment,e.id.toString(),entropyHash]);
+  await transact(`start:${e.id}`,'startEpoch',[e.id,row.secret,ordered],e.id);
+  return;
+ }
+ if(entropyMode==='contract'){
+  const row=(await db.query('SELECT secret,entropy_hash FROM mg_epochs WHERE deployment=$1 AND id=$2',[deployment,e.id.toString()])).rows[0];
+  if(!row?.entropy_hash)throw new Error('Missing persisted entropy hash for started epoch');
+  const expected=keccak256(concatHex([row.secret,row.entropy_hash]));
+  if(expected!==e.seed){
+   // A parent-chain reorganization between the view and start must never pick an uncommitted roster.
+   for(let arena=1;arena<=e.arenas;arena++)
+    await transact(`entropy-mismatch:${e.id}:${arena}`,'invalidateArena',[e.id,BigInt(arena)],e.id);
+   return;
+  }
+ }
+
  const sizes=arenaAllocation(wallets.length);let cursor=0;
  for(let arena=1;arena<=sizes.length;arena++){const a=await read('arenaInfo',[e.id,BigInt(arena)]),id=`${deployment}:${e.id}:${arena}`;const chunk=wallets.slice(cursor,cursor+sizes[arena-1]);cursor+=sizes[arena-1];const roster:Array<{id:string;name:string;controller:'human'|'agent';wallet:string}>=[];for(const wallet of chunk){const row=(await db.query('SELECT * FROM mg_entries WHERE deployment=$1 AND epoch=$2 AND wallet=$3',[deployment,e.id.toString(),wallet.toLowerCase()])).rows[0];roster.push({id:row.player_id,name:row.name,controller:row.controller,wallet:row.wallet});}const seed=parseInt(keccak256(concatHex([e.seed,`0x${arena.toString(16).padStart(64,'0')}` as Hex])).slice(2,10),16);await db.query('INSERT INTO mg_jobs(id,deployment,epoch,arena,seed,roster,budget,starts_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO NOTHING',[id,deployment,e.id.toString(),arena,seed,JSON.stringify(roster),a.budget.toString(),Number(a.startedAt)]);
  const job=(await db.query('SELECT j.*,m.status AS match_status,m.header,m.result,m.checkpoint_tick,m.heartbeat FROM mg_jobs j LEFT JOIN mg_matches m ON m.id=j.room_id WHERE j.id=$1',[id])).rows[0];
