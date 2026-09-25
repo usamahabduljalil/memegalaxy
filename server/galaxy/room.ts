@@ -2,7 +2,6 @@ import { encodeObservation } from '../../shared/galaxy/wire';
 import { Room,type Client } from '@colyseus/core';
 import { randomBytes,createHash } from 'node:crypto';
 import { addPlayer,applyAction,connection,createWorld,observe,rankings,tick,massOf,standings } from '../../shared/galaxy/engine';
-import { RULESET_ID } from '../../shared/galaxy/rules';
 import type { Action,Entrant,Observation,World } from '../../shared/galaxy/types';
 import type { ReplayInput } from '../../shared/galaxy/replay';
 import { verifyAdmission,agentActive,type Admission } from './auth';
@@ -15,7 +14,7 @@ export class GalaxyRoom extends Room {
   async onCreate(options:{mode?:'free'|'prize';entrants?:Entrant[];seed?:number;startsAt?:number;serviceKey?:string}){
     if(options.serviceKey!==roomCreationKey)throw new Error('Use the authenticated admission API to create a room');
     const seed=options.seed??randomBytes(4).readUInt32LE();this.world=createWorld(options.mode??'free',seed,options.entrants??[]);this.setMetadata({mode:this.world.mode,protocol:2});if(this.world.mode==='prize'){for(const p of this.world.players){connection(this.world,p.id,false);this.events.push({tick:0,id:p.id,connected:false});}this.prizeReadyAt=Date.now()+PRIZE_JOIN_WINDOW_MS;this.prizeRecoveryAt=(options.startsAt??Date.now()/1000)*1000+7200000;}
-    if(persistent)await db.query('INSERT INTO mg_matches(id,deployment,mode,rules,header,status) VALUES($1,$2,$3,$4,$5,$6)',[this.roomId,process.env.MEMEGALAXY_DEPLOYMENT??'robinhood-testnet-staging',this.world.mode,RULESET_ID,{version:2,rulesHash:RULESET_ID,mode:this.world.mode,capacity:100,seed,entrants:options.entrants??[]},'active']);
+    if(persistent)await db.query('INSERT INTO mg_matches(id,deployment,mode,rules,header,status) VALUES($1,$2,$3,$4,$5,$6)',[this.roomId,process.env.MEMEGALAXY_DEPLOYMENT??'robinhood-testnet-staging',this.world.mode,this.world.rulesHash,{version:2,rulesHash:this.world.rulesHash,mode:this.world.mode,capacity:100,seed,entrants:options.entrants??[]},'active']);
     this.onMessage('action',(client,a:Action)=>{const session=this.sessions.get(client.sessionId);if(!session||session.scope==='spectator'||!a||this.world.mode==='prize'&&!this.prizeStarted)return;const budget=this.budgets.get(session.id)??{tick:this.world.tick,count:0};if(this.world.tick-budget.tick>=30){budget.tick=this.world.tick;budget.count=0;}budget.count++;this.budgets.set(session.id,budget);if(budget.count>40)return;if(applyAction(this.world,session.id,a))this.events.push({tick:this.world.tick,id:session.id,action:{seq:a.seq,type:a.type,...(a.type==='WAIT'?{}:{x:a.x,y:a.y})}});});
     this.setSimulationInterval(()=>this.advance(),1000/30);
   }

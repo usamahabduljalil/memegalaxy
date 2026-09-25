@@ -2,13 +2,14 @@ import { createPublicClient,createWalletClient,http,isAddress,encodeFunctionData
 import { privateKeyToAccount } from 'viem/accounts';
 import { robinhoodTestnet,galaxyEscrowAbi as abi } from '../../shared/galaxy/chain';
 import { db } from './store';
+import { RULESET_ID } from '../../shared/galaxy/rules';
 const rpc=process.env.ROBINHOOD_RPC_URL??robinhoodTestnet.rpcUrls.default.http[0];
 export const chain=createPublicClient({chain:robinhoodTestnet,transport:http(rpc,{timeout:15000,retryCount:1})});
 export const escrow=process.env.MEMEGALAXY_ESCROW_ADDRESS as Address|undefined;
 export const deployment=`46630:${escrow?.toLowerCase()??'unconfigured'}`;
 export const paid=process.env.MEMEGALAXY_ENABLE_PRIZES==='true'&&process.env.MEMEGALAXY_ENTROPY_SOURCE==='contract'&&!!escrow&&isAddress(escrow);
 export async function assertNetwork(){if(await chain.getChainId()!==46630)throw new Error('Only Robinhood testnet is supported');}
-export async function assertPrizeEscrow(){if(paid){const value=await read('entropyHash',[0n]);if(value!==`0x${'0'.repeat(64)}`)throw new Error('Unexpected prize escrow entropy view');}}
+export async function assertPrizeEscrow(){if(paid){const value=await read('entropyHash',[0n]);if(value!==`0x${'0'.repeat(64)}`)throw new Error('Unexpected prize escrow entropy view');const ruleset=await read('RULESET');if(ruleset!==keccak256(new TextEncoder().encode(RULESET_ID)))throw new Error('Prize escrow is bound to a different gameplay ruleset');}}
 export function signer(name:string){const key=(process.env[name]??(name==='MEMEGALAXY_OPERATOR_PRIVATE_KEY'?process.env.REGISTRAR_PRIVATE_KEY:undefined)) as Hex;if(!key)throw new Error(`Missing ${name}`);return createWalletClient({account:privateKeyToAccount(key),chain:robinhoodTestnet,transport:http(rpc,{timeout:15000,retryCount:1})});}
 export async function read(fn:string,args:readonly unknown[]=[]){if(!escrow)throw new Error('Testnet escrow not configured');return chain.readContract({address:escrow,abi,functionName:fn as any,args:args as any}) as Promise<any>;}
 export async function epoch(){if(!escrow)return null;const id=BigInt(await read('currentEpoch'));if(!id)return null;const v=await read('epochInfo',[id]);return {id,status:Number(v[0]),deadline:Number(v[1]),recovery:Number(v[2]),count:Number(v[3]),arenas:Number(v[4]),finished:Number(v[5]),commitment:v[6] as Hex,seed:v[7] as Hex,entropyBlock:BigInt(v[8])};}

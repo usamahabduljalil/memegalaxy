@@ -1,12 +1,15 @@
 import { describe,it,expect } from 'vitest';
 import { createWorld,applyAction,tick,massOf,observe,connection,rankings } from '../shared/galaxy/engine';
-import { arenaAllocation, RULESET_ID } from '../shared/galaxy/rules';
+import { arenaAllocation, LEGACY_RULESET_ID, RULESET_ID, radius, speed } from '../shared/galaxy/rules';
 import { replay } from '../shared/galaxy/replay';
 import { parseStrategy,control } from '../shared/galaxy/agent';
 const entrants=[{id:'a',name:'A',controller:'human' as const},{id:'b',name:'B',controller:'agent' as const}];
 const empty=()=>{const w=createWorld('prize',42,entrants);w.food=[];w.objects=[];w.cells[0].x=-500;w.cells[1].x=500;w.cells.forEach(c=>c.y=0);w.players.forEach(p=>p.protectedUntil=0);return w;};
 describe('MEMEGalaxy authoritative simulation',()=>{
  it('starts humans and agents at equal mass',()=>{const w=empty();expect(w.cells.map(c=>c.mass)).toEqual([100,100]);});
+ it('grows visibly from food and replenishes at the same mass value',()=>{const w=createWorld('free',73,[entrants[0]],2),c=w.cells[0];w.objects=[];w.food=[{id:9999,x:c.x,y:c.y,mass:4}];const before=radius(c.mass);tick(w);expect(c.mass).toBe(104);expect(radius(c.mass)).toBeGreaterThan(before);for(let i=0;i<2;i++)tick(w);expect(w.food.every(f=>f.mass===4)).toBe(true);});
+ it('moves faster while preserving the size speed penalty',()=>{expect(speed(100)).toBe(340);expect(speed(400)).toBeLessThan(speed(100));expect(speed(1600)).toBeLessThan(speed(400));const fast=empty(),slow=empty();slow.cells[0].mass=400;applyAction(fast,'a',{seq:0,type:'MOVE',x:1,y:0});applyAction(slow,'a',{seq:0,type:'MOVE',x:1,y:0});tick(fast);tick(slow);expect(fast.cells[0].x+500).toBeGreaterThan(slow.cells[0].x+500);});
+ it('keeps older replays on their original food and movement tuning',()=>{const legacy=createWorld('free',73,[entrants[0]],2,LEGACY_RULESET_ID);expect(legacy.food[0].mass).toBe(1);expect(speed(100,LEGACY_RULESET_ID)).toBe(230);const header={version:2 as const,rulesHash:LEGACY_RULESET_ID,seed:73,mode:'free' as const,capacity:2,entrants:[entrants[0]]};const recorded=replay(header,[{tick:0,id:'a',action:{seq:0,type:'MOVE' as const,x:1,y:0}}],3);expect(recorded.rulesHash).toBe(LEGACY_RULESET_ID);expect(recorded.food.every(f=>f.mass===1)).toBe(true);});
  it('splits without minting mass and cannot immediately merge',()=>{const w=empty();expect(applyAction(w,'a',{seq:0,type:'SPLIT',x:1,y:0})).toBe(true);expect(w.cells.filter(c=>c.owner==='a')).toHaveLength(2);expect(massOf(w,'a')).toBe(100);tick(w);expect(w.cells.filter(c=>c.owner==='a')).toHaveLength(2);});
  it('requires size advantage and containment',()=>{const w=empty();w.cells[0].x=0;w.cells[1].x=0;tick(w);expect(w.cells).toHaveLength(2);w.cells[0].mass=130;tick(w);expect(w.cells).toHaveLength(1);expect(w.cells[0].mass).toBe(230);expect(w.finished).toBe(true);});
  it('respects initial protection',()=>{const w=empty();w.players[1].protectedUntil=90;w.cells[0].mass=300;w.cells[1].x=w.cells[0].x;w.cells[1].y=w.cells[0].y;tick(w);expect(w.cells).toHaveLength(2);});

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
 const require=createRequire(import.meta.url);const solc=require('solc');
 export function compile(){
-  const names=['BigCircle.sol','TestDominate.sol','MockUSDC.sol','MemeGalaxyEscrow.sol','MemeGalaxyEscrowV3.sol','TestMemeGalaxy.sol'];
+  const names=['BigCircle.sol','TestDominate.sol','MockUSDC.sol','MemeGalaxyEscrow.sol','MemeGalaxyEscrowV3.sol','MemeGalaxyEscrowV4.sol','TestMemeGalaxy.sol'];
   const input={language:'Solidity',sources:Object.fromEntries(names.map(n=>[n,{content:readFileSync(resolve('contracts',n),'utf8')}])),settings:{optimizer:{enabled:true,runs:200},viaIR:true,evmVersion:'paris',outputSelection:{'*':{'*':['abi','evm.bytecode.object','evm.deployedBytecode.object']}}}};
   const output=JSON.parse(solc.compile(JSON.stringify(input),{import:(name:string)=>{try{return {contents:readFileSync(resolve('node_modules',name),'utf8')}}catch{return {error:`Missing ${name}`}}}}));
   const errors=(output.errors??[]).filter((e:any)=>e.severity==='error');if(errors.length)throw new Error(errors.map((e:any)=>e.formattedMessage).join('\n'));

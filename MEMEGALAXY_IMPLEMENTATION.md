@@ -16,7 +16,7 @@ The version-two implementation is isolated from Big Circle's Arc contracts, data
 
 Action types: MOVE, WAIT, SPLIT, EJECT. Actions contain a monotonic `seq` and normalized `x,y` except WAIT. CHASE and ESCAPE are SDK strategies compiled into MOVE, never privileged engine commands. API keys are hashed and only returned at creation/rotation.
 
-The v2 ruleset is `memegalaxy-v2.0.0`. Simulation state and client observations are distinct types. Observations omit hidden cells, RNG state and opponent intentions. Replays retain full authoritative state only on the server.
+The current protocol-2 gameplay ruleset is `memegalaxy-v2.1.0`; `memegalaxy-v2.0.0` remains available for historical replay verification. Simulation state and client observations are distinct types. Observations omit hidden cells, RNG state and opponent intentions. Replays retain full authoritative state only on the server.
 
 ## Release gates
 
@@ -49,7 +49,7 @@ Epoch 2 started after its Sepolia entropy block finalized. One prize room opened
 
 The prize lobby now explains that Sepolia finality commonly adds about 15–20 minutes after registration closes. A mixed human/owner-backed-agent prize match and full live recovery drill remain release gates.
 
-## Five-minute rollover and faster arena opening � 25 September 2026
+## Five-minute rollover and faster arena opening � 25 September 2026
 
 The v3 testnet escrow is recorded in `deploy/robinhood-testnet-v3.json`. It reuses the same mock token, test USDC and faucet, but has a separate prize vault seeded with 1,000 mock test USDC. Underfilled registration windows now roll over for five minutes; initial registration and underfunded/paused rollovers remain twenty minutes. Its `entropyHash(epoch)` view returns the exact rollup `BLOCKHASH` value available to `startEpoch`, so the worker can start after the target block becomes available on Robinhood rather than waiting for Sepolia's finalized head. This is a testnet latency tradeoff: a parent-chain reorganization between the view and start causes the worker to invalidate every affected arena and refund entrants instead of playing with a mismatched published seed. The hash is persisted before the start transaction.
 
@@ -58,3 +58,8 @@ The old v2 escrow was paused for **new** entries in transaction `0xaa4dfdc715b1d
 The public API and worker now point to v3, with `MEMEGALAXY_ENTROPY_SOURCE=contract`. The worker refuses to start a new match using the old v2 external-hash path, because its value can differ from the contract's seed. The hosted lobby reports the active timing. Local v3 contract tests passed all twelve payout/recovery scenarios and verified the five-minute rollover and entropy hash. The new deployment opened Epoch 1 with 1,000 mock test USDC available. Its first two underfilled rollovers emitted deadlines of 10:57:24 and 11:02:25 UTC on 25 September, confirming the live five-minute window. A live ten-entrant v3 match is still needed to measure actual close-to-arena time and payout on this path.
 
 A live testnet probe found the contract-visible hash after 54 seconds (three parent-height steps after its initial reading), and the value remained stable eight parent-height steps later. It differed from the hash returned for the same height by the Sepolia RPC; v3 deliberately uses only the contract-visible value for roster ordering. Probe transaction: `0x555fe039fd095524292ab26a9ce70f1983bc57704b6822768fbd8f32005a1a7e`. This is a latency check, not yet a complete ten-player prize match.
+## Food and movement tuning — 25 September 2026
+
+The current ruleset is `memegalaxy-v2.1.0`. Food grants 4 game mass rather than 1. A 100-mass cell moves at 340 world units per second rather than 230, with faster steering response; speed still falls with increasing cell mass. The client draws food larger and pulses a growth ring when authoritative mass increases. Cell radius remains `4 × sqrt(mass)`, so food and combat gains use the same size formula. The old v2.0.0 values remain selectable by the replay verifier for recorded matches.
+
+Robinhood testnet v3 Epoch 1 completed with ten entrants, one valid arena, and 500/300/200 mock test-USDC prizes. All ten deposits and USDC obligations were claimed. Its Epoch 2 had zero entrants when new registrations were paused in transaction `0x76d9c67fab6296480f386e249488e8996cbb09c14eda1f7b5eaf66f3c819fdd5`. Existing contract claims and recovery remain callable. The separate v4 escrow at `0xb1364bfc81118bd2a945bd5a51bd340cce9aa920` binds entries to the v2.1.0 ruleset and was seeded with 1,000 mock test USDC; public deployment details are in `deploy/robinhood-testnet-v4.json`. This is a fresh prize pool; no prior user funds were moved.

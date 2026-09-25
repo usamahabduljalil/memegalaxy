@@ -1,4 +1,4 @@
-import { GALAXY_RULES as R, RULESET_ID, radius, speed, mergeDelay } from './rules';
+import { GALAXY_RULES as R, RULESET_ID, rulesFor, radius, speed, mergeDelay } from './rules';
 import { SpatialGrid } from './spatial';
 import type { Action, Cell, Entrant, Mode, Observation, Player, Vec, World } from './types';
 export function random(w:World){w.rng=(w.rng+0x6D2B79F5)>>>0;let t=w.rng;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;}
@@ -6,10 +6,11 @@ const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const unit=(x:number,y:number):Vec=>{const d=Math.hypot(x,y);return d>0?{x:x/Math.max(1,d),y:y/Math.max(1,d)}:{x:0,y:0};};
 const point=(w:World):Vec=>({x:(random(w)*2-1)*(w.size/2-100),y:(random(w)*2-1)*(w.size/2-100)});
 export const massOf=(w:World,id:string)=>w.cells.reduce((sum,c)=>sum+(c.owner===id?c.mass:0),0);
-export function createWorld(mode:Mode,seed:number,entrants:Entrant[]=[],capacity=100):World {
+export function createWorld(mode:Mode,seed:number,entrants:Entrant[]=[],capacity=100,rulesHash=RULESET_ID):World {
   if(!Number.isInteger(capacity)||capacity<2||capacity>100||entrants.length>capacity||new Set(entrants.map(e=>e.id)).size!==entrants.length)throw new Error('Invalid room roster');
-  const w:World={version:2,rulesHash:RULESET_ID,mode,capacity,tick:0,size:Math.max(4000,800*Math.sqrt(capacity)),safeHalf:0,seed,rng:seed,nextId:1,players:[],cells:[],food:[],pellets:[],objects:[],finished:false};w.safeHalf=w.size/2;
-  for(let i=0;i<capacity*R.foodPerSlot;i++)w.food.push({...point(w),id:w.nextId++,mass:1});
+  const tuning=rulesFor(rulesHash);
+  const w:World={version:2,rulesHash,mode,capacity,tick:0,size:Math.max(4000,800*Math.sqrt(capacity)),safeHalf:0,seed,rng:seed,nextId:1,players:[],cells:[],food:[],pellets:[],objects:[],finished:false};w.safeHalf=w.size/2;
+  for(let i=0;i<capacity*R.foodPerSlot;i++)w.food.push({...point(w),id:w.nextId++,mass:tuning.foodMass});
   for(let i=0;i<Math.max(4,Math.ceil(capacity/5));i++)w.objects.push({...point(w),id:w.nextId++,kind:'nova',feeds:0});
   entrants.forEach(e=>addPlayer(w,e));return w;
 }
@@ -28,10 +29,10 @@ export function applyAction(w:World,id:string,a:Action):boolean {
 }
 export function rankings(w:World){const mass=new Map<string,number>();for(const c of w.cells)mass.set(c.owner,(mass.get(c.owner)??0)+c.mass);return [...w.players].sort((a,b)=>Number(b.alive)-Number(a.alive)||(a.alive?(mass.get(b.id)??0)-(mass.get(a.id)??0):(b.eliminatedTick??0)-(a.eliminatedTick??0)||b.lastMass-a.lastMass)||b.earned-a.earned||a.tie-b.tie||a.id.localeCompare(b.id));}
 export function tick(w:World){
-  if(w.finished)return;w.tick++;const dt=1/30,seconds=w.tick/30,players=new Map(w.players.map(p=>[p.id,p]));
+  if(w.finished)return;w.tick++;const dt=1/30,seconds=w.tick/30,tuning=rulesFor(w.rulesHash),players=new Map(w.players.map(p=>[p.id,p]));
   w.safeHalf=w.mode==='prize'?w.size/2*Math.pow(.5,Math.max(0,seconds-60)/180):w.size/2;
   for(const p of w.players)p.lastMass=massOf(w,p.id);
-  for(const c of w.cells){const p=players.get(c.owner)!;const moving=p.disconnectedTick===null;c.mx+=(p.intent.x*speed(c.mass)-c.mx)*Math.min(1,dt*8);c.my+=(p.intent.y*speed(c.mass)-c.my)*Math.min(1,dt*8);if(!moving){c.mx=0;c.my=0;c.vx=0;c.vy=0;}c.x+=(c.vx+c.mx)*dt;c.y+=(c.vy+c.my)*dt;c.vx*=.86;c.vy*=.86;const edge=Math.max(0,w.size/2-radius(c.mass));c.x=Math.max(-edge,Math.min(edge,c.x));c.y=Math.max(-edge,Math.min(edge,c.y));if(w.mode==='prize'){let loss=0;if(Math.max(Math.abs(c.x),Math.abs(c.y))+radius(c.mass)>w.safeHalf)loss+=.08+seconds/3000;if(seconds>1200)loss+=(seconds-1200)/600;c.mass*=Math.exp(-loss*dt);}}
+  for(const c of w.cells){const p=players.get(c.owner)!;const moving=p.disconnectedTick===null;c.mx+=(p.intent.x*speed(c.mass,w.rulesHash)-c.mx)*Math.min(1,dt*tuning.steeringResponse);c.my+=(p.intent.y*speed(c.mass,w.rulesHash)-c.my)*Math.min(1,dt*tuning.steeringResponse);if(!moving){c.mx=0;c.my=0;c.vx=0;c.vy=0;}c.x+=(c.vx+c.mx)*dt;c.y+=(c.vy+c.my)*dt;c.vx*=.86;c.vy*=.86;const edge=Math.max(0,w.size/2-radius(c.mass));c.x=Math.max(-edge,Math.min(edge,c.x));c.y=Math.max(-edge,Math.min(edge,c.y));if(w.mode==='prize'){let loss=0;if(Math.max(Math.abs(c.x),Math.abs(c.y))+radius(c.mass)>w.safeHalf)loss+=.08+seconds/3000;if(seconds>1200)loss+=(seconds-1200)/600;c.mass*=Math.exp(-loss*dt);}}
   for(const p of w.pellets){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.9;p.vy*=.9;}
   // Choose each victim's predator against one immutable phase snapshot. Resolve largest first.
   const grid=new SpatialGrid<Cell>(256);w.cells.forEach(c=>grid.insert(c));const maxRadius=Math.max(0,...w.cells.map(c=>radius(c.mass)));const consumed=new Set<number>();
@@ -50,7 +51,7 @@ export function tick(w:World){
   for(const p of w.players){const cells=w.cells.filter(c=>c.owner===p.id).sort((a,b)=>a.id-b.id);for(let i=0;i<cells.length;i++)for(let j=i+1;j<cells.length;j++){const a=cells[i],b=cells[j];if(removed.has(a.id)||removed.has(b.id))continue;const d=distance(a,b),sum=radius(a.mass)+radius(b.mass);if(d>=sum)continue;if(w.tick>=Math.max(a.mergeAt,b.mergeAt)){a.x=(a.x*a.mass+b.x*b.mass)/(a.mass+b.mass);a.y=(a.y*a.mass+b.y*b.mass)/(a.mass+b.mass);a.mass+=b.mass;removed.add(b.id);}else {const angle=(a.id+b.id)*2.39996;const dx=d>.001?(b.x-a.x)/d:Math.cos(angle),dy=d>.001?(b.y-a.y)/d:Math.sin(angle),push=Math.min(sum-d,6)/2;a.x-=dx*push;a.y-=dy*push;b.x+=dx*push;b.y+=dy*push;}}}
   w.cells=w.cells.filter(c=>!removed.has(c.id)&&c.mass>=R.minimumMass&&!(players.get(c.owner)!.disconnectedTick!==null&&w.tick-players.get(c.owner)!.disconnectedTick!>=R.reconnectTicks));
   for(const p of w.players){p.peakMass=Math.max(p.peakMass,massOf(w,p.id));if(p.alive&&!w.cells.some(c=>c.owner===p.id)){p.alive=false;p.eliminatedTick=w.tick;p.respawnTick=w.tick+R.respawnTicks;p.intent={x:0,y:0};}if(!p.alive&&w.mode==='free'&&p.disconnectedTick===null&&w.tick>=p.respawnTick)spawn(w,p);}
-  if(w.tick%3===0)for(let i=0;i<3&&w.food.length<w.capacity*R.foodPerSlot;i++)w.food.push({...point(w),id:w.nextId++,mass:1});
+  if(w.tick%3===0)for(let i=0;i<3&&w.food.length<w.capacity*R.foodPerSlot;i++)w.food.push({...point(w),id:w.nextId++,mass:tuning.foodMass});
   if(w.mode==='prize'&&w.players.length>1&&w.players.filter(p=>p.alive).length<=1)w.finished=true;
 }
 export function standings(w:World){const mass=new Map<string,number>(),counts=new Map<string,number>();for(const c of w.cells){mass.set(c.owner,(mass.get(c.owner)??0)+c.mass);counts.set(c.owner,(counts.get(c.owner)??0)+1);}return rankings(w).slice(0,10).map((p,i)=>({id:p.id,name:p.name,controller:p.controller,mass:mass.get(p.id)??0,cells:counts.get(p.id)??0,alive:p.alive,rank:i+1}));}
