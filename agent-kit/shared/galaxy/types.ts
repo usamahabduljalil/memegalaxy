@@ -1,0 +1,13 @@
+export type Vec = { x: number; y: number };
+export type Mode = 'free' | 'prize';
+export type Controller = 'human' | 'agent';
+export type Action = { seq: number; type: 'MOVE' | 'SPLIT' | 'EJECT' | 'WAIT'; x?: number; y?: number };
+export type Entrant = { id: string; name: string; controller: Controller };
+export type Player = Entrant & { alive: boolean; intent: Vec; earned: number; peakMass:number; lastMass: number; eliminatedTick: number | null; protectedUntil: number; disconnectedTick: number | null; respawnTick: number; tie: number; seq: number; nextEject: number; nextSplit: number };
+export type Cell = Vec & { id: number; owner: string; mass: number; vx: number; vy: number; mx:number;my:number;mergeAt: number };
+export type Food = Vec & { id: number; mass: number };
+export type EjectedMass = Food & { vx: number; vy: number; source: string; expires: number };
+export type ArenaObject = Vec & { id: number; kind: 'nova'; feeds: number };
+export type World = { version: 2; rulesHash: string; mode: Mode; capacity: number; tick: number; size: number; safeHalf: number; seed: number; rng: number; nextId: number; players: Player[]; cells: Cell[]; food: Food[]; pellets: EjectedMass[]; objects: ArenaObject[]; finished: boolean };
+export type Standing = { id: string; name: string; controller: Controller; mass: number; cells: number; alive: boolean; rank: number };
+export type Observation = { protocol: 2; tick: number; alive: number; mode: Mode; size: number; safeHalf: number; finished: boolean; self: string; viewport: Vec & { half: number }; cells: Array<Pick<Cell,'id'|'owner'|'x'|'y'|'mass'|'mergeAt'>>; food: Food[]; pellets: Food[]; objects: ArenaObject[]; leaderboard: Standing[]; names: Record<string,{name:string;controller:Controller;protected:boolean}> };

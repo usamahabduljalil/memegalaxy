@@ -7,7 +7,18 @@ const observation=()=>observe(createWorld('free',42,[{id:'a',name:'A',controller
 describe('external agent runner',()=>{
  beforeEach(()=>{vi.useFakeTimers();vi.clearAllMocks();vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({roomId:'room',token:'ticket',personality:'hunter'})})));});
  afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals();});
- it('uses the profile personality and resets sequence on reconnect',async()=>{
+ it('runs from owner-issued admission without exposing an agent key to the browser',async()=>{
+  const onObservation=vi.fn(),onStatus=vi.fn();
+  const runner=await runAgent({server:'http://localhost',admission:{roomId:'owned-room',token:'short-lived-ticket',personality:'survivor'},onObservation,onStatus});
+  expect(fetch).not.toHaveBeenCalled();
+  transport.callbacks.identity({id:'agent:owned',seq:4});
+  transport.callbacks.frame(observation());
+  await vi.advanceTimersByTimeAsync(80);
+  expect(onObservation).toHaveBeenCalledTimes(1);
+  expect(onStatus).toHaveBeenCalled();
+  expect(transport.send.mock.lastCall?.[0].seq).toBe(5);
+  await runner.close();
+ }); it('uses the profile personality and resets sequence on reconnect',async()=>{
   const decide=vi.fn(async(_observation:unknown,_personality:string)=>({type:'WAIT' as const}));const runner=await runAgent({server:'http://localhost',apiKey:'test',adapter:{decide}});
   transport.callbacks.identity({id:'a',seq:8});transport.callbacks.frame(observation());await vi.advanceTimersByTimeAsync(2100);
   expect(transport.send.mock.calls[0][0].seq).toBe(9);expect(decide.mock.calls[0][1]).toBe('hunter');
