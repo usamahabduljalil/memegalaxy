@@ -3,14 +3,14 @@ import { awardStats } from './stats';
 import { randomBytes } from 'node:crypto';
 import { createPublicClient,http,keccak256,concatHex,type Hex,type Address } from 'viem';
 import { db,migrateGalaxy,persistent } from './store';
-import { assertNetwork,chain,deployment,epoch,paid,read,reconcile,transact } from './chain';
+import { assertNetwork,assertPrizeEscrow,chain,deployment,epoch,paid,read,reconcile,transact } from './chain';
 import { arenaAllocation } from '../../shared/galaxy/rules';
 import { replay,type ReplayHeader,type ReplayInput } from '../../shared/galaxy/replay';
 import { rankings } from '../../shared/galaxy/engine';
 import { canonicalJSON } from '../../shared/canonical';
 import { ROOM_START_GRACE_SECONDS,ROOM_HEARTBEAT_GRACE_MS } from './lifecycle';
-if(!persistent)throw new Error('MEMEGalaxy worker requires PostgreSQL');await migrateGalaxy();await assertNetwork();
-// Solidity's block.number and blockhash on Nitro refer to the Sepolia parent chain.
+if(!persistent)throw new Error('MEMEGalaxy worker requires PostgreSQL');await migrateGalaxy();await assertNetwork();await assertPrizeEscrow();
+// Solidity's block.number follows the parent height, but Nitro's BLOCKHASH value may differ from a Sepolia RPC hash.
 const parent=createPublicClient({transport:http(process.env.SEPOLIA_RPC_URL??'https://ethereum-sepolia-rpc.publicnode.com',{timeout:15000,retryCount:1})});
 if(await parent.getChainId()!==11155111)throw new Error('Entropy RPC must be Ethereum Sepolia');
 const lock=await db.connect();await lock.query('SELECT pg_advisory_lock(hashtext($1))',[`memegalaxy-worker:${deployment}`]);lock.on('error',()=>process.exit(1));
@@ -39,13 +39,8 @@ async function cycle(){await reconcile();const e=await epoch();if(!e||e.status==
     return;
    }
   }else{
-   // Compatibility path for the already deployed v2 escrow, which has no entropyHash view.
-   const finalized=await parent.getBlock({blockTag:'finalized'});
-   if(finalized.number<=e.entropyBlock)return;
-   if(finalized.number>e.entropyBlock+256n){
-    await transact(`abandon:${e.id}`,'abandonExpiredEntropy',[e.id],e.id);return;
-   }
-   entropyHash=(await parent.getBlock({blockNumber:e.entropyBlock})).hash!;
+   // V2 has no onchain getter; an external RPC hash cannot prove the roster's seed.
+   throw new Error('Legacy entropy source cannot safely start a new prize epoch');
   }
   const row=(await db.query('SELECT secret FROM mg_epochs WHERE deployment=$1 AND id=$2',[deployment,e.id.toString()])).rows[0];
   if(!row)throw new Error('Missing committed secret');

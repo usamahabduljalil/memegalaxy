@@ -13,7 +13,7 @@ import { GalaxyRoom,roomCreationKey } from './room';
 import { owner,agent,hashKey,issueAdmission,publicPlayerId } from './auth';
 import { db,persistent,migrateGalaxy } from './store';
 import { authorizeEntry,myPrizeEntries,prizeAdmission,prizeLobby,recordTransaction } from './prizes';
-import { deployment,paid } from './chain';
+import { assertPrizeEscrow,deployment,paid } from './chain';
 import { ROOM_CREATION_GRACE_SECONDS } from './lifecycle';
 const origins=(process.env.MEMEGALAXY_WEB_ORIGINS??process.env.WEB_ORIGINS??'http://127.0.0.1:5173,http://localhost:5173').split(',');
 const app=express();app.disable('x-powered-by');app.set('trust proxy',1);app.use(cors({origin(origin,done){done(null,!origin||origins.includes(origin));}}));app.use(express.json({limit:'8kb'}));app.use(rateLimit({windowMs:60000,limit:120}));
@@ -40,6 +40,6 @@ app.use((err:any,_req:express.Request,res:express.Response,_next:express.NextFun
 const redis=process.env.MEMEGALAXY_REDIS_URL;
 if(redis&&!process.env.MEMEGALAXY_PUBLIC_ADDRESS)throw new Error('Configure a directly routable public address per game process when using shared matchmaking');
 const server=new Server({...(redis?{driver:new RedisDriver(redis),presence:sharedPresence(redis),publicAddress:process.env.MEMEGALAXY_PUBLIC_ADDRESS}:{}),transport:new WebSocketTransport({server:createServer(app),maxPayload:4096,verifyClient:(info,done)=>done(!info.origin||origins.includes(info.origin))})});server.define('galaxy',GalaxyRoom);
-if(persistent)await migrateGalaxy();
+if(persistent)await migrateGalaxy();await assertPrizeEscrow();
 let coordinating=false;const coordinator=persistent?setInterval(async()=>{if(coordinating)return;coordinating=true;const c=await db.connect();try{await c.query('BEGIN');const jobs=(await c.query("SELECT * FROM mg_jobs WHERE deployment=$1 AND status='pending' ORDER BY starts_at FOR UPDATE SKIP LOCKED LIMIT 1",[deployment])).rows;for(const job of jobs){if(Date.now()/1000-Number(job.starts_at)>ROOM_CREATION_GRACE_SECONDS){await c.query("UPDATE mg_jobs SET status='invalid' WHERE id=$1",[job.id]);continue;}await c.query("UPDATE mg_jobs SET status='claiming',claim_time=now() WHERE id=$1",[job.id]);const room=await matchMaker.createRoom('galaxy',{serviceKey:roomCreationKey,mode:'prize',entrants:job.roster,seed:Number(job.seed),startsAt:Number(job.starts_at)});await c.query("UPDATE mg_jobs SET status='active',room_id=$2 WHERE id=$1",[job.id,room.roomId]);}await c.query('COMMIT');}catch(e){await c.query('ROLLBACK');console.error('Room assignment failed');}finally{c.release();coordinating=false;}},1000):undefined;
 const port=Number(process.env.MEMEGALAXY_PORT??process.env.PORT??2568);await server.listen(port);console.log(`MEMEGalaxy service listening on ${port}`);process.on('SIGTERM',()=>{if(coordinator)clearInterval(coordinator);void server.gracefullyShutdown();});

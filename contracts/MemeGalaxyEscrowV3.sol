@@ -108,7 +108,7 @@ contract MemeGalaxyEscrowV3 is AccessControl, ReentrancyGuard, EIP712 {
         Epoch storage e=epochs[id];require(!entriesPaused&&e.status==Status.Registration&&block.timestamp>=e.registrationDeadline&&e.roster.length>=10&&availablePrize()>=MIN_POOL,"NOT_READY");
         require(e.entropyBlock==0,"ENTROPY_ALREADY_REQUESTED");e.entropyBlock=block.number+2;
     }
-    /// @notice Exact parent-chain hash that startEpoch will use, once available on this rollup.
+    /// @notice Exact rollup BLOCKHASH value that startEpoch will use once it is available.
     function entropyHash(uint256 id) external view returns(bytes32){
         uint256 target=epochs[id].entropyBlock;
         if(target==0||block.number<=target||block.number-target>256)return bytes32(0);
