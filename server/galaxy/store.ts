@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { Pool } from 'pg';
 export const db=new Pool({connectionString:process.env.MEMEGALAXY_DATABASE_URL??process.env.DATABASE_URL,max:10,connectionTimeoutMillis:5000});
 export const persistent=!!(process.env.MEMEGALAXY_DATABASE_URL??process.env.DATABASE_URL);
-export async function migrateGalaxy(){await db.query(`
+export async function migrateGalaxy(){const client=await db.connect();try{await client.query('BEGIN');await client.query("SELECT pg_advisory_xact_lock(hashtext('memegalaxy-schema'))");await client.query(`
 CREATE TABLE IF NOT EXISTS mg_agents(id uuid PRIMARY KEY,owner text NOT NULL,wallet text NOT NULL,name varchar(24) NOT NULL,description varchar(300) NOT NULL DEFAULT '',provider varchar(60) NOT NULL DEFAULT '',personality varchar(20) NOT NULL,key_hash text UNIQUE,created_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS mg_matches(id text PRIMARY KEY,deployment text NOT NULL,mode text NOT NULL,rules text NOT NULL,header jsonb NOT NULL,status text NOT NULL,checkpoint jsonb,checkpoint_tick integer NOT NULL DEFAULT 0,result jsonb,heartbeat timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS mg_events(match_id text REFERENCES mg_matches(id),sequence integer NOT NULL,events jsonb NOT NULL,PRIMARY KEY(match_id,sequence));
@@ -10,7 +10,25 @@ CREATE TABLE IF NOT EXISTS mg_stats(player_id text PRIMARY KEY,name text NOT NUL
 CREATE TABLE IF NOT EXISTS mg_stat_awards(match_id text NOT NULL,player_id text NOT NULL,PRIMARY KEY(match_id,player_id));
 CREATE TABLE IF NOT EXISTS mg_epochs(deployment text NOT NULL,id bigint NOT NULL,status text NOT NULL,secret text NOT NULL,commitment text NOT NULL,PRIMARY KEY(deployment,id));
 ALTER TABLE mg_epochs ADD COLUMN IF NOT EXISTS entropy_hash text;
+CREATE TABLE IF NOT EXISTS mg_owners(owner text PRIMARY KEY,wallet text NOT NULL,updated_at timestamptz NOT NULL DEFAULT now());
+ALTER TABLE mg_agents ADD COLUMN IF NOT EXISTS hosted_enabled boolean NOT NULL DEFAULT true;
+ALTER TABLE mg_agents ADD COLUMN IF NOT EXISTS instructions varchar(1000) NOT NULL DEFAULT '';
+ALTER TABLE mg_agents ADD COLUMN IF NOT EXISTS model text NOT NULL DEFAULT 'gpt-6-luna';
+ALTER TABLE mg_agents ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1;
+ALTER TABLE mg_agents ADD COLUMN IF NOT EXISTS idempotency text;
+CREATE UNIQUE INDEX IF NOT EXISTS mg_agent_idempotency ON mg_agents(owner,idempotency) WHERE idempotency IS NOT NULL;
 CREATE TABLE IF NOT EXISTS mg_entries(deployment text NOT NULL,epoch bigint NOT NULL,wallet text NOT NULL,owner text NOT NULL,player_id text NOT NULL,name varchar(24) NOT NULL,controller text NOT NULL,controller_hash text NOT NULL,confirmed boolean NOT NULL DEFAULT false,PRIMARY KEY(deployment,epoch,wallet));
 CREATE TABLE IF NOT EXISTS mg_jobs(id text PRIMARY KEY,deployment text NOT NULL,epoch bigint NOT NULL,arena integer NOT NULL,seed bigint NOT NULL,roster jsonb NOT NULL,budget numeric(30,0) NOT NULL,starts_at bigint NOT NULL,status text NOT NULL DEFAULT 'pending',room_id text,claim_time timestamptz,UNIQUE(deployment,epoch,arena));
 CREATE TABLE IF NOT EXISTS mg_transactions(operation_key text PRIMARY KEY,deployment text NOT NULL,epoch bigint,wallet text,kind text NOT NULL,status text NOT NULL,hash text,raw text,updated_at timestamptz NOT NULL DEFAULT now());
-`);}
+ALTER TABLE mg_entries ADD COLUMN IF NOT EXISTS runtime_mode text NOT NULL DEFAULT 'external';
+ALTER TABLE mg_entries ADD COLUMN IF NOT EXISTS agent_config jsonb;
+CREATE TABLE IF NOT EXISTS mg_agent_runs(id uuid PRIMARY KEY,agent_id uuid NOT NULL REFERENCES mg_agents(id),owner text NOT NULL,mode text NOT NULL,deployment text,epoch bigint,config jsonb NOT NULL,status text NOT NULL DEFAULT 'queued',message text NOT NULL DEFAULT 'Waiting for arena',room_id text,lease_owner text,lease_until timestamptz,started_at timestamptz,ends_at timestamptz,reconnect text,observation jsonb,decisions jsonb NOT NULL DEFAULT '[]',created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),UNIQUE(deployment,epoch,agent_id));
+CREATE UNIQUE INDEX IF NOT EXISTS mg_one_active_run ON mg_agent_runs(owner) WHERE status IN ('queued','joining','running','reconnecting');
+CREATE TABLE IF NOT EXISTS mg_runtime_instances(id text PRIMARY KEY,lease_until timestamptz NOT NULL);
+CREATE TABLE IF NOT EXISTS mg_model_days(day text PRIMARY KEY,reserved bigint NOT NULL DEFAULT 0,spent bigint NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS mg_model_requests(id uuid PRIMARY KEY,run_id uuid NOT NULL REFERENCES mg_agent_runs(id),day text NOT NULL,reserved bigint NOT NULL,cost bigint,status text NOT NULL DEFAULT 'reserved',created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_practice_days(owner text NOT NULL,day text NOT NULL,seconds integer NOT NULL DEFAULT 0,PRIMARY KEY(owner,day));
+CREATE TABLE IF NOT EXISTS mg_entry_drafts(id uuid PRIMARY KEY,owner text NOT NULL,wallet text NOT NULL,epoch bigint NOT NULL,agent_id uuid,deposit text NOT NULL,idempotency text NOT NULL,expires_at timestamptz NOT NULL,UNIQUE(owner,idempotency));
+CREATE TABLE IF NOT EXISTS mg_oauth(id text NOT NULL,type text NOT NULL,payload jsonb NOT NULL,expires_at timestamptz,consumed_at timestamptz,PRIMARY KEY(type,id));
+CREATE TABLE IF NOT EXISTS mg_mcp_connections(grant_id text PRIMARY KEY,owner text NOT NULL,client_id text NOT NULL,name text NOT NULL DEFAULT 'MCP client',verified_at timestamptz,revoked_at timestamptz,created_at timestamptz NOT NULL DEFAULT now());
+`);await client.query('COMMIT');}catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}}

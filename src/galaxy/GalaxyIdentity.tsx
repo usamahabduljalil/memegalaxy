@@ -1,106 +1,34 @@
-import { useEffect,useRef,useState,type FormEvent } from 'react';
-import { PrivyProvider,usePrivy,useWallets } from '@privy-io/react-auth';
-import { robinhoodTestnet } from '../../shared/galaxy/chain';
-import { radius } from '../../shared/galaxy/rules';
-import type { Observation } from '../../shared/galaxy/types';
-import { runAgent,type AgentAdmission } from '../../sdk/agent';
-
-const server=import.meta.env.VITE_MEMEGALAXY_API_URL||'http://127.0.0.1:2568';
-type Agent={id:string;name:string;description:string;personality:string;provider:string;credential_active:boolean;matches:number;wins:number;peak_mass:number};
-type LiveAgent={id:string;name:string;status:string;observation?:Observation};
-
-function AgentPreview({observation:o}:{observation:Observation}){
- const factor=140/o.viewport.half;
- const x=(value:number)=>140+(value-o.viewport.x)*factor;
- const y=(value:number)=>140+(value-o.viewport.y)*factor;
- const vertical=[] as number[],horizontal=[] as number[];
- for(let world=Math.floor((o.viewport.x-o.viewport.half)/200)*200;world<o.viewport.x+o.viewport.half;world+=200)vertical.push(x(world));
- for(let world=Math.floor((o.viewport.y-o.viewport.half)/200)*200;world<o.viewport.y+o.viewport.half;world+=200)horizontal.push(y(world));
- return <svg className="mg-agent-preview" viewBox="0 0 280 280" role="img" aria-label="Live nearby arena view. Green cells belong to your agent. Pink cells are larger opponents.">
-  <rect width="280" height="280" fill="#141326"/>
-  {vertical.map((line,i)=><line key={'v'+i} x1={line} x2={line} y1="0" y2="280" stroke="#ffffff" strokeOpacity=".08"/>)}
-  {horizontal.map((line,i)=><line key={'h'+i} x1="0" x2="280" y1={line} y2={line} stroke="#ffffff" strokeOpacity=".08"/>)}
-  {o.food.slice(0,120).map(food=><circle key={food.id} cx={x(food.x)} cy={y(food.y)} r="2.5" fill="#e7ce8e"/>)}
-  {o.objects.map(object=><circle key={object.id} cx={x(object.x)} cy={y(object.y)} r={Math.max(5,45*factor)} fill="none" stroke="#71dcc3" strokeWidth="2" strokeDasharray="4 3"/>)}
-  {o.cells.map(cell=>{const own=cell.owner===o.self,large=!own&&o.cells.some(mine=>mine.owner===o.self&&cell.mass>=mine.mass*1.25);return <circle key={cell.id} cx={x(cell.x)} cy={y(cell.y)} r={Math.max(3,radius(cell.mass)*factor)} fill={own?'#b9ef81':large?'#ee7eab':'#aa92ec'} fillOpacity=".8" stroke={own?'#f6ffe9':'#ffffff'} strokeWidth={own?2:1} strokeDasharray={large?'4 3':undefined}/>;})}
- </svg>;
+import {useDialogFocus} from './useDialogFocus';
+import {useEffect,useRef,useState,type FormEvent} from 'react';
+import {Plus,Settings2,Play,Plug,X,ShieldCheck} from 'lucide-react';
+import {useGalaxySession} from './GalaxySession';
+import {PageHeading,Avatar,Badge,Notice,Empty,AgentView,navigate} from './GalaxyUi';
+import type {Observation} from '../../shared/galaxy/types';
+type Agent={id:string;name:string;description:string;personality:string;instructions:string;model:string;matches:number;wins:number;peak_mass:number;run_id?:string;run_status?:string;run_mode?:string;run_message?:string};
+type Run={config?:{name:string;personality:string;model:string;version:number};id:string;agent_id:string;mode:string;status:string;message:string;observation?:Observation;decisions:Array<{type:string;tick:number}>};
+const active=['queued','joining','running','reconnecting'];
+export default function GalaxyIdentity(){
+ const {authenticated,connect,api}=useGalaxySession(),[agents,setAgents]=useState<Agent[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(false),[editing,setEditing]=useState<Partial<Agent>|null>(null),[run,setRun]=useState<Run>(),[forfeit,setForfeit]=useState(false);
+ useDialogFocus(!!editing||forfeit,()=>{if(!busy){setEditing(null);setForfeit(false);}});
+ const createKey=useRef(crypto.randomUUID());
+ async function refresh(){if(!authenticated){setLoading(false);return;}try{setAgents(await api('agents'));setError('');}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
+ useEffect(()=>{void refresh();const id=setInterval(()=>void refresh(),5000);return()=>clearInterval(id);},[authenticated,api]);
+ const [available,setAvailable]=useState(false);useEffect(()=>{void api('hosted').then(r=>setAvailable(r.available)).catch(()=>setAvailable(false));},[api]);
+ const liveId=agents.find(a=>active.includes(a.run_status??''))?.run_id;
+ useEffect(()=>{if(!liveId){setRun(undefined);return;}let cancelled=false;const poll=()=>void api('runs/'+liveId).then(r=>{if(!cancelled)setRun(r);}).catch(e=>{if(!cancelled)setError(e.message);});poll();const id=setInterval(poll,1200);return()=>{cancelled=true;clearInterval(id);};},[liveId,api]);
+ async function save(e:FormEvent){e.preventDefault();if(!editing)return;setBusy(true);try{await api('agents'+(editing.id?'/'+editing.id:''),editing.id?'PATCH':'POST',{name:editing.name,description:editing.description??'',personality:editing.personality??'opportunist',instructions:editing.instructions??'',...(!editing.id?{idempotency:createKey.current}:{})});setEditing(null);createKey.current=crypto.randomUUID();await refresh();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ async function start(id:string){setBusy(true);try{await api('agents/'+id+'/practice','POST',{});await refresh();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ async function stop(){if(!run)return;setBusy(true);try{await api('runs/'+run.id+'/stop','POST',run.mode==='prize'?{forfeit:true}:{});setRun(undefined);setForfeit(false);await refresh();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ return <><PageHeading eyebrow="YOUR AUTONOMOUS CONTENDERS" title="Agent Lab" action={<button className="mg-button primary" disabled={authenticated&&agents.length>=3} onClick={()=>authenticated?setEditing({name:'',personality:'opportunist'}):connect()}><Plus size={18}/>Create agent</button>}>Give your contender a personality. We host it, connect it, and keep it playing—even when you close this page.</PageHeading>
+ <div className="mg-setup-strip"><span><b>1</b>{authenticated?'Wallet connected':'Connect wallet'}</span><span><b>2</b><a href="#mcp">Connect MCP</a> · optional</span><span><b>3</b>Create your agent</span><span><b>4</b>Review and sign entry</span></div>
+ {!available&&<Notice>Hosted runtime is being prepared. You can create and configure agents; practice and agent prize entry open when it is ready.</Notice>}{error&&<Notice tone="error">{error}</Notice>}
+ {!authenticated?<Empty title="Your team starts here" action={<button className="mg-button primary" onClick={connect}>Connect wallet</button>}>Use your external wallet or email wallet. Your existing MEMEGalaxy account stays with you.</Empty>:loading?<div className="mg-page-skeleton">Loading agents…</div>:<>
+ {run&&<article className="mg-card" style={{marginBottom:24}}><div className="mg-card-top"><div><Badge tone={run.status}>{run.status.toUpperCase()}</Badge><h2>{run.config?.name??agents.find(a=>a.id===run.agent_id)?.name??'Your agent'} · {run.mode==='prize'?'Prize match':'Hosted practice'}</h2></div><button className="mg-button danger" disabled={busy} onClick={()=>run.mode==='prize'?setForfeit(true):void stop()}>{run.mode==='prize'?'Forfeit match':'Stop practice'}</button></div><div className="mg-runtime-panel">{run.observation?<AgentView observation={run.observation}/>:<Empty title="Ready for launch">Your agent will enter automatically when the assigned arena opens.</Empty>}<div><h3>Playing on your behalf</h3>{run.config&&<p className="mg-inline-note">{run.config.model} · {run.config.personality} · configuration v{run.config.version}</p>}<Notice>{run.message}</Notice><p>Your wallet, payout address, and entry are fixed. Leaving the website or disconnecting MCP does not stop this run.</p>{run.observation&&<div className="mg-agent-meta"><span><b>{Math.floor(run.observation.cells.filter(c=>c.owner===run.observation!.self).reduce((n,c)=>n+c.mass,0))}</b>Game mass</span><span><b>{run.observation.alive}</b>Survivors</span><span><b>{run.observation.cells.filter(c=>c.owner===run.observation!.self).length}</b>Owned cells</span></div>}</div></div></article>}
+ {agents.length?<div className="mg-card-grid">{agents.map(a=><article className="mg-card mg-agent-card" key={a.id}><div className="mg-card-top"><div className="mg-agent-title"><Avatar seed={a.id} agent size={56}/><div><h3>{a.name}</h3><small>{a.personality} · AI contender</small></div></div><button className="mg-button icon" aria-label={'Configure '+a.name} onClick={()=>setEditing(a)}><Settings2 size={17}/></button></div><Badge tone={a.run_status??'muted'}>{active.includes(a.run_status??'')?a.run_status:'IDLE'}</Badge><p>{a.description||'A cosmic contender, built around your strategy.'}</p><div className="mg-inline"><ShieldCheck size={16}/><span className="mg-inline-note">Gameplay model: {a.model}</span></div><div className="mg-agent-meta"><span><b>{a.matches}</b>Matches</span><span><b>{a.wins}</b>Wins</span><span><b>{Math.floor(a.peak_mass).toLocaleString()}</b>Peak mass</span></div><div className="mg-actions"><button className="mg-button secondary" disabled={busy||!!liveId||!available} onClick={()=>void start(a.id)}><Play size={15}/>Practice</button><button className="mg-button primary" disabled={!available||!!liveId&&a.run_mode==='prize'} onClick={()=>navigate('lobby?agent='+a.id)}>Enter prize match</button></div></article>)}</div>:<Empty title="Meet your first contender" action={<button className="mg-button primary" onClick={()=>setEditing({name:'',personality:'opportunist'})}>Create an agent</button>}>Choose hunter, survivor, or opportunist. Add your own strategy instructions.</Empty>}
+ </>}
+ <div className="mg-budget"><span><b>Hosted by MEMEGalaxy</b> · No runner to install</span><span>3 profiles · 1 active agent · 5 minutes practice daily</span><span>Platform model cap $10/day · $0.25 per run</span></div><p className="mg-inline-note">When model calls are unavailable or budgets are exhausted, the local controller keeps playing. Limits reset at midnight Africa/Lagos.</p>
+ <article className="mg-card" style={{marginTop:24}}><div className="mg-card-top"><div className="mg-inline"><Plug size={22}/><h3>Bring your favorite AI client</h3></div><a className="mg-button secondary" href="#mcp">Connect MCP</a></div><p>Manage agents and prepare entries from your AI client. Prize entry always returns here for your wallet approval.</p></article>
+ {editing&&<div className="mg-dialog-backdrop"><section className="mg-dialog" role="dialog" aria-modal="true" aria-labelledby="agent-dialog-title"><div className="mg-card-top"><h2 id="agent-dialog-title">{editing.id?'Configure agent':'Create your contender'}</h2><button className="mg-button icon" aria-label="Close" onClick={()=>setEditing(null)}><X size={20}/></button></div><form className="mg-form" onSubmit={save}><label>Name<input autoFocus required maxLength={24} value={editing.name??''} onChange={e=>setEditing({...editing,name:e.target.value})}/></label><label>Personality<select value={editing.personality} onChange={e=>setEditing({...editing,personality:e.target.value})}><option value="hunter">Hunter · pursue opportunities</option><option value="survivor">Survivor · protect and grow</option><option value="opportunist">Opportunist · adapt to the arena</option></select></label><label>Description<input maxLength={300} value={editing.description??''} onChange={e=>setEditing({...editing,description:e.target.value})}/></label><label>Strategy instructions<textarea maxLength={1000} placeholder="Prefer food-rich areas. Split only when the target is safely smaller." value={editing.instructions??''} onChange={e=>setEditing({...editing,instructions:e.target.value})}/></label><small>GPT-6 Luna provides strategic guidance. A fast local controller handles movement. Edits apply to future entries.</small><button className="mg-button primary" disabled={busy}>{busy?'Saving…':editing.id?'Save configuration':'Create agent'}</button></form></section></div>}
+ {forfeit&&<div className="mg-dialog-backdrop"><section className="mg-dialog" role="dialog" aria-modal="true"><h2>Forfeit this prize match?</h2><p>Your agent stops playing. This does not cancel an active match or refund its entry fee. Locked tokens remain claimable after the epoch resolves.</p><div className="mg-actions"><button className="mg-button secondary" onClick={()=>setForfeit(false)}>Keep playing</button><button className="mg-button danger" disabled={busy} onClick={()=>void stop()}>Confirm forfeit</button></div></section></div>}
+ </>;
 }
-
-function Lab(){
- const {ready,authenticated,login,logout,getAccessToken}=usePrivy(),{wallets}=useWallets();
- const wallet=wallets.find(w=>w.walletClientType==='privy');
- const [agents,setAgents]=useState<Agent[]>([]),[error,setError]=useState(''),[secret,setSecret]=useState(''),[busy,setBusy]=useState(false),[live,setLive]=useState<LiveAgent>();
- const controller=useRef<AbortController|undefined>(undefined),lastFrame=useRef(0);
- async function request(path:string,method='GET',body?:unknown,signal?:AbortSignal){
-  const token=await getAccessToken();
-  const res=await fetch(server+'/api/v2/'+path,{method,signal,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
-  if(!res.ok){const result=await res.json().catch(()=>({error:'Service unavailable'}));throw new Error(result.error);}
-  return res.status===204?null:res.json();
- }
- async function refresh(){try{setAgents(await request('agents'));setError('');}catch(e){setError(String(e instanceof Error?e.message:e));}}
- useEffect(()=>{if(authenticated)void refresh();else{controller.current?.abort();setLive(undefined);setAgents([]);setSecret('');}},[authenticated]);
- useEffect(()=>()=>controller.current?.abort(),[]);
- async function create(event:FormEvent<HTMLFormElement>){
-  event.preventDefault();setBusy(true);const form=event.currentTarget,data=new FormData(form);
-  try{
-   await request('agents','POST',{name:data.get('name'),description:data.get('description'),personality:data.get('personality'),provider:data.get('provider')||'Local policy'});
-   form.reset();await refresh();
-  }catch(e){setError(String(e instanceof Error?e.message:e));}finally{setBusy(false);}
- }
- async function credential(a:Agent,revoke=false){
-  setBusy(true);setSecret('');
-  try{const data=await request('agents/'+a.id+'/credential',revoke?'DELETE':'POST');if(data)setSecret(data.key);await refresh();}
-  catch(e){setError(String(e instanceof Error?e.message:e));}finally{setBusy(false);}
- }
- async function start(a:Agent){
-  if(live||controller.current&&!controller.current.signal.aborted||!wallet)return;
-  const stop=new AbortController();controller.current=stop;lastFrame.current=0;setError('');setLive({id:a.id,name:a.name,status:'Getting arena access…'});
-  try{
-   const admission=await request('agents/'+a.id+'/admission','POST',undefined,stop.signal) as AgentAdmission;
-   if(stop.signal.aborted)return;
-   await runAgent({server,admission,signal:stop.signal,
-    onStatus:status=>{if(!stop.signal.aborted)setLive(previous=>previous?.id===a.id?{...previous,status}:previous);},
-    onObservation:observation=>{if(stop.signal.aborted||Date.now()-lastFrame.current<200)return;lastFrame.current=Date.now();setLive(previous=>previous?.id===a.id?{...previous,observation}:previous);}
-   });
-  }catch(e){if(!stop.signal.aborted){setLive(undefined);setError(String(e instanceof Error?e.message:e));}}
- }
- function stop(){controller.current?.abort();controller.current=undefined;setLive(undefined);}
- const mine=live?.observation?.cells.filter(cell=>cell.owner===live.observation!.self)??[];
- const mass=mine.reduce((total,cell)=>total+cell.mass,0);
- const standing=live?.observation?.leaderboard.find(player=>player.id===live.observation!.self);
- return <section className="mg-lab">
-  <p className="mg-eyebrow">THE AGENT LAB</p>
-  <h1>Build your contender.</h1>
-  <p>Create an agent, give it an access key, and watch it enter free play. The in-browser runner uses a local strategy and keeps playing while this tab stays open.</p>
-  {!authenticated?<button className="mg-primary" disabled={!ready} onClick={login}>Sign in with email</button>:<>
-   <p>Owner wallet: <code>{wallet?.address??'Creating your wallet…'}</code></p>
-   <button className="mg-secondary" style={{background:'none',border:0}} onClick={()=>void logout()}>Sign out</button>
-   <form onSubmit={create}>
-    <label htmlFor="agent-name">Agent name</label><input id="agent-name" name="name" maxLength={24} required placeholder="Your next contender"/>
-    <label htmlFor="agent-description">Description</label><input id="agent-description" name="description" maxLength={300} placeholder="How does your agent play?"/>
-    <label htmlFor="agent-provider">Provider or model label</label><input id="agent-provider" name="provider" maxLength={60} placeholder="Local policy, OpenAI, or another model"/>
-    <label htmlFor="agent-personality">Starting strategy</label><select id="agent-personality" name="personality"><option value="opportunist">Opportunist</option><option value="hunter">Hunter</option><option value="survivor">Survivor</option></select>
-    <button className="mg-primary" disabled={busy}>Create agent</button>
-   </form>
-   <h2>Your agents</h2>
-   {agents.length===0&&<p>No agents yet. Create one above to try the arena.</p>}
-   {agents.map(a=><article className="mg-agent-card" key={a.id}>
-    <div className="mg-agent-card-heading"><b>{a.name}</b><span>{a.personality} · {a.provider}</span></div>
-    {a.description&&<p>{a.description}</p>}
-    <small>{a.matches} matches · {a.wins} wins · Peak mass {Math.floor(a.peak_mass)}</small>
-    <div className="mg-agent-actions">
-     <button disabled={busy} onClick={()=>void credential(a)}>{a.credential_active?'Replace access key':'Create access key'}</button>
-     {a.credential_active&&<button disabled={busy} onClick={()=>void credential(a,true)}>Revoke key</button>}
-     <button disabled={!a.credential_active||!wallet||!!live} onClick={()=>void start(a)}>Run in this tab</button>
-    </div>
-   </article>)}
-   {secret&&<div className="mg-alert"><p>Copy this access key now. It is shown only once and controls this agent. Keep it on your own runner.</p><code>{secret}</code><p><button onClick={()=>void navigator.clipboard.writeText(secret)}>Copy key</button> <button onClick={()=>setSecret('')}>Hide</button></p></div>}
-   {live&&<div className="mg-agent-live" role="status"><div><small>LIVE AGENT · {live.name}</small><h2>{live.status}</h2><p>{Math.floor(mass)} mass · {mine.length} {mine.length===1?'cell':'cells'}{standing?' · Rank '+standing.rank:''}</p><p>This tab runs the local {agents.find(a=>a.id===live.id)?.personality??'opportunist'} strategy. It stops when you leave or close the tab.</p><button onClick={stop}>Stop agent</button></div>{live.observation&&<AgentPreview observation={live.observation}/>}</div>}
-  </>}
-  {error&&<p className="mg-alert" role="alert">{error}</p>}
-  <h3>Run a model on your own machine</h3>
-  <p>The external runner supports OpenAI and compatible providers. Its model key stays on your machine, and its actions go through the same server checks as a human player. For a prize match, select the agent as your controller when you enter and run it with that epoch number.</p>
-  <a className="mg-primary" href="/memegalaxy-agent-kit.zip" download>Download agent runner</a>
- </section>;
-}
-export default function GalaxyIdentity(){const appId=import.meta.env.VITE_PRIVY_APP_ID;if(!appId)return <section className="mg-lab"><h1>Agent lab</h1><p>Email sign-in needs a Privy app configuration.</p></section>;return <PrivyProvider appId={appId} config={{loginMethods:['email'],appearance:{theme:'dark',accentColor:'#bba1f4'},defaultChain:robinhoodTestnet,supportedChains:[robinhoodTestnet],embeddedWallets:{ethereum:{createOnLogin:'all-users'}}}}><Lab/></PrivyProvider>;}

@@ -12,7 +12,7 @@ export class OpenAICompatibleAdapter implements AgentAdapter {
     if(!response.ok)throw new Error(`Provider returned ${response.status}`);const body=await response.json();return parseStrategy(JSON.parse(body.choices?.[0]?.message?.content??''));
   }
 }
-export type AgentAdmission = {roomId:string;token:string;personality?:Personality};
+export type AgentAdmission = {roomId:string;token:string;personality?:Personality;reconnect?:string};
 export type AgentRunnerOptions = {
   server:string;
   apiKey?:string;
@@ -24,6 +24,7 @@ export type AgentRunnerOptions = {
   onObservation?:(observation:Observation)=>void;
   onAction?:(action:ReturnType<typeof control>)=>void;
   onStatus?:(status:string)=>void;
+  onReconnect?:(token:string)=>void;
 };
 export async function runAgent(options:AgentRunnerOptions){
   let ticket=options.admission;
@@ -34,7 +35,7 @@ export async function runAgent(options:AgentRunnerOptions){
     ticket=await admission.json() as AgentAdmission;
   }
   if(!ticket?.roomId||!ticket.token)throw new Error('Incomplete agent admission');
-  const {roomId,token,personality:profilePersonality}=ticket;
+  const {roomId,token,personality:profilePersonality,reconnect}=ticket;
   const personality:Personality=options.personality??(['hunter','survivor','opportunist'].includes(profilePersonality??'')?profilePersonality!:'opportunist');
   const liveStatus=options.epoch?'Agent live in prize arena':'Agent live in free play';
   if(options.signal?.aborted)throw new Error('Agent runner was stopped');
@@ -43,8 +44,8 @@ export async function runAgent(options:AgentRunnerOptions){
   const cleanup=()=>{stopped=true;clearInterval(move);clearInterval(decide);pending?.abort();options.signal?.removeEventListener('abort',stop);};
   const stop=()=>{cleanup();void room.close();};
   options.onStatus?.('Connecting to arena…');
-  const room=await connectArena(options.server,{roomId,token},{frame:o=>{latest=o;options.onObservation?.(o);},identity:v=>{seq=v.seq+1;strategy=undefined;options.onStatus?.(liveStatus);},state:message=>{latest=undefined;strategy=undefined;pending?.abort();options.onStatus?.(message||liveStatus);},closed:message=>{cleanup();options.onStatus?.(message);},result:()=>{cleanup();options.onStatus?.('Match finished');}});
+  const room=await connectArena(options.server,{roomId,token,reconnect},{reconnection:options.onReconnect,frame:o=>{latest=o;options.onObservation?.(o);},identity:v=>{seq=v.seq+1;strategy=undefined;options.onStatus?.(liveStatus);},state:message=>{latest=undefined;strategy=undefined;pending?.abort();options.onStatus?.(message||liveStatus);},closed:message=>{cleanup();options.onStatus?.(message);},result:()=>{cleanup();options.onStatus?.('Match finished');}});
   move=setInterval(()=>{if(!latest||stopped)return;const next=control(latest,strategy&&latest.tick-decisionTick<150?strategy:survival(latest,personality),seq++);room.send(next);options.onAction?.(next);if(strategy?.type==='SPLIT'||strategy?.type==='EJECT')strategy=undefined;},1000/15);
-  decide=setInterval(async()=>{if(!latest||!options.adapter||busy||stopped)return;busy=true;const observation=latest,request=new AbortController();pending=request;const timeout=setTimeout(()=>request.abort(),4000);try{const result=parseStrategy(await options.adapter.decide(observation,personality,request.signal));if(!stopped&&!request.signal.aborted&&latest&&latest.tick-observation.tick<=120){strategy=result;decisionTick=observation.tick;}}catch{strategy=undefined;}finally{clearTimeout(timeout);busy=false;}},2000);
+  decide=setInterval(async()=>{if(!latest||!options.adapter||busy||stopped||!latest.cells.some(c=>c.owner===latest!.self)||options.epoch&&latest.tick===0)return;busy=true;const observation=latest,request=new AbortController();pending=request;const timeout=setTimeout(()=>request.abort(),4000);try{const result=parseStrategy(await options.adapter.decide(observation,personality,request.signal));if(!stopped&&!request.signal.aborted&&latest&&latest.tick-observation.tick<=120){strategy=result;decisionTick=observation.tick;}}catch{strategy=undefined;}finally{clearTimeout(timeout);busy=false;}},2000);
   options.signal?.addEventListener('abort',stop,{once:true});if(options.signal?.aborted)stop();return {close:async()=>{cleanup();await room.close();}};
 }
