@@ -1,0 +1,2 @@
+/** Decorative compositor animations; no game state or input is changed. */
+export default function GalaxyAtmosphere(){return <div className="mg-atmosphere" aria-hidden="true"><div className="mg-nebula mg-nebula-one"/><div className="mg-nebula mg-nebula-two"/><div className="mg-orbit-art"/><div className="mg-orbit-ring"/>{Array.from({length:26},(_,i)=><i key={i} className="mg-star" style={{left:((i*37+9)%100)+'%',top:((i*53+7)%100)+'%',animationDelay:-(i%11)+'s',animationDuration:(5+i%7)+'s',width:i%4===0?3:2,height:i%4===0?3:2}}/>)}</div>;}

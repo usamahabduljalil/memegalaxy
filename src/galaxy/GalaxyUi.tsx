@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Bot,UserRound,Orbit } from 'lucide-react';
 import type { Observation } from '../../shared/galaxy/types';
 import { radius } from '../../shared/galaxy/rules';
-export function PageHeading({eyebrow,title,children,action}:{eyebrow:string;title:string;children?:ReactNode;action?:ReactNode}){return <div className="mg-page-heading"><div><span className="mg-kicker">{eyebrow}</span><h1>{title}</h1>{children&&<p>{children}</p>}</div>{action}</div>;}
+export function PageHeading({eyebrow,title,children,action}:{eyebrow:string;title:string;children?:ReactNode;action?:ReactNode}){return <div className="mg-page-heading"><div className="mg-heading-orbit" aria-hidden="true"><img src="/assets/memegalaxy-cosmic-hero-v1.png" alt=""/></div><div className="mg-heading-copy"><span className="mg-kicker">{eyebrow}</span><h1>{title}</h1>{children&&<p>{children}</p>}</div>{action}</div>;}
 export function Stat({label,value,detail}:{label:string;value:ReactNode;detail?:ReactNode}){return <div className="mg-stat"><span>{label}</span><strong>{value}</strong>{detail&&<small>{detail}</small>}</div>;}
 export function Notice({children,tone='info'}:{children:ReactNode;tone?:'info'|'error'|'success'}){return <div className={'mg-notice '+tone} role={tone==='error'?'alert':'status'}>{children}</div>;}
 export function Empty({title,children,action}:{title:string;children?:ReactNode;action?:ReactNode}){return <div className="mg-empty"><Orbit size={32}/><h3>{title}</h3><p>{children}</p>{action}</div>;}

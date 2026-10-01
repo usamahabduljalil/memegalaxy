@@ -1,0 +1,9 @@
+import {describe,it,expect,vi} from 'vitest';import {recoverTransactions,type TransactionRecovery} from '../server/galaxy/transaction-recovery';
+const row=(n:number)=>({operation_key:'operation:'+n,hash:'hash:'+n,raw:'raw:'+n});
+function io():TransactionRecovery{return {receipt:vi.fn(async()=>undefined),identity:vi.fn(async raw=>({sender:'operator',nonce:Number(raw.split(':')[1])})),nonce:vi.fn(async()=>5),broadcast:vi.fn(async()=>{}),terminal:vi.fn(async()=>{})};}
+describe('Durable transaction reconciliation',()=>{
+ it('retires a disappeared hash with a consumed nonce so later scheduling can proceed',async()=>{const r=io();await recoverTransactions([row(4)],r);expect(r.terminal).toHaveBeenCalledWith(row(4),'failed','nonce-consumed');expect(r.broadcast).not.toHaveBeenCalled();});
+ it('keeps a live nonce pending without starving a later confirmed payment',async()=>{const r=io();r.receipt=vi.fn(async h=>h==='hash:8'?{status:'success' as const}:undefined);await recoverTransactions([row(5),row(8)],r);expect(r.broadcast).toHaveBeenCalledWith('raw:5');expect(r.terminal).toHaveBeenCalledWith(row(8),'confirmed');expect(r.terminal).not.toHaveBeenCalledWith(row(5),'failed',expect.anything());});
+ it('never retires a transaction merely because the RPC failed',async()=>{const r=io();r.receipt=vi.fn(async()=>{throw new Error('RPC unavailable');});await expect(recoverTransactions([row(4)],r)).rejects.toThrow('RPC unavailable');expect(r.terminal).not.toHaveBeenCalled();});
+ it('records reverted receipts and caches signer nonce checks within a cycle',async()=>{const r=io();r.receipt=vi.fn(async h=>h==='hash:2'?{status:'reverted' as const}:undefined);await recoverTransactions([row(2),row(3),row(4)],r);expect(r.terminal).toHaveBeenCalledWith(row(2),'failed');expect(r.nonce).toHaveBeenCalledTimes(1);});
+});
