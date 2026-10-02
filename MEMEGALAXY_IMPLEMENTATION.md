@@ -112,3 +112,9 @@ MCP is an owner-management interface: it can configure future agents, inspect st
 ## Stock Hunt, skins and GUSD — 2 October 2026
 
 See [Stock Hunt release record](STOCK_HUNT_RELEASE.md) for the new contracts, staged activation, economy controls and verification. The normal Docker image does not require test-chain dependencies. Original prize rulesets, escrow economics and recovery remain available.
+
+## Public Stock Hunt beta and recovery hardening — 2 October 2026
+
+The owner reported the phone/account checks complete. Public Sites version 15 now exposes Stock Hunt, Wardrobe, GUSD, weekly Rewards, editable Profile and Docs. Production CSS preloading and mobile navigation were verified from the public origin. MCP authorization/review links now target that origin. Device-specific FPS and the independently listed hosted-agent/MCP match/client exercises remain separate verification items.
+
+A follow-up removes expired hunting sessions after database recovery, checks leases on reconnection, excludes spectators from the 100-player matchmaking limit, and resets intentional continuous-mode reentries to 100 mass with the latest name/skin. Human peak progress is saved at exit. All 92 unit tests and disposable continuous/prize room drills pass. No contract redeployment or reward-accounting change is involved.

@@ -7,7 +7,7 @@ import type {World,Observation} from '../../shared/galaxy/types';
 import type {Admission} from './auth';
 export class HuntRoom {
  drop?:HuntDrop;paused=true;private contacts=new Map<string,DropContact>();private limited=new Set<string>();private limitedDay='';private heartbeatBusy=false;private busy=false;private closed=false;private next=Date.now()+randomInt(180000,420001);private lastHeartbeat=0;private requiredTicks=15;
- constructor(private roomId:string,private sessions:()=>Admission[],private record:(event:Record<string,unknown>)=>void){}
+ constructor(private roomId:string,private sessions:()=>Admission[],private record:(event:Record<string,unknown>)=>void,private expired:(sessions:string[])=>void=()=>{}){}
  tick(world:World){if(this.closed)return;if(Date.now()-this.lastHeartbeat>5000){this.lastHeartbeat=Date.now();void this.heartbeat(world);}
   if(this.busy)return;
   if(this.drop&&Date.now()>=this.drop.expires){const id=this.drop.id;this.record({kind:'drop-expired',drop:id});this.drop=undefined;this.contacts.clear();void expireDrop(id).catch(()=>{this.paused=true;});}
@@ -19,7 +19,7 @@ export class HuntRoom {
  }
  private async heartbeat(world:World){if(this.heartbeatBusy)return;this.heartbeatBusy=true;try{
   const ids=this.sessions().filter(a=>world.players.find(p=>p.id===a.id)?.disconnectedTick===null).map(s=>s.huntSession);
-  if(ids.length){const result=await db.query("UPDATE mg_hunt_sessions SET lease_until=now()+interval '30 seconds' WHERE id=ANY($1::uuid[]) AND room_id=$2 AND lease_until>now() RETURNING player_id",[ids,this.roomId]);if(result.rowCount!==ids.length)throw Error('Session lease lost');}
+  if(ids.length){const result=await db.query("UPDATE mg_hunt_sessions SET lease_until=now()+interval '30 seconds' WHERE id=ANY($1::uuid[]) AND room_id=$2 AND lease_until>now() RETURNING id",[ids,this.roomId]);if(this.closed)return;const renewed=new Set(result.rows.map(r=>r.id));const lost=ids.filter((id):id is string=>!!id&&!renewed.has(id));if(lost.length)this.expired(lost);}
   const cfg=await config();this.paused=this.drop?!cfg.settings.enabled:!await dropsFunded();const day=new Date(Date.now()+3600000).toISOString().slice(0,10);if(day!==this.limitedDay){this.limitedDay=day;this.limited.clear();}
  }catch{this.paused=true;}finally{this.heartbeatBusy=false;}}
  private async spawn(world:World){try{const reserved=await reserveDrop(this.roomId);const settings=reserved?.settings??HUNT_DEFAULTS;this.next=Date.now()+randomInt(settings.minInterval*1000,settings.maxInterval*1000+1);if(!reserved){this.paused=true;return;}if(this.closed){await expireDrop(reserved.id);return;}

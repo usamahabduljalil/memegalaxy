@@ -18,7 +18,7 @@ Paid skin prices, GUSD tasks and retirement exchange rates require explicit oper
 
 ## Verification
 
-- 85 project tests passed, including old prize gameplay/replays and new Stock Hunt respawns, collision ordering, protection, daily/week boundaries and Merkle proofs.
+- 92 project tests passed, including old prize gameplay/replays and new Stock Hunt respawns, collision ordering, protection, daily/week boundaries and Merkle proofs.
 - Local EVM contract checks covered funded immutable weekly allocations, failed recipients, duplicate claims, fixed recipients, signer restrictions, permanent retirement, quote replay/rate invalidation and unchanged total supply.
 - An isolated PostgreSQL schema verified concurrent ledger credits, overspending prevention, skin purchases, account/wallet session uniqueness, funded reservations, exactly-once awards, daily caps and frozen bonuses/recipients.
 - Staging executed the full application flow against a disposable local chain and isolated database schema: task → review → GUSD → skin; quote → retirement → confirmed credit; authoritative collision → durable reward → Monday allocation → wallet claim. The scanner recovered a retirement without a browser-reported hash. Production users received no fixture rewards or credits.
@@ -45,6 +45,16 @@ The staging game service also serves a compiled review frontend at `https://meme
 
 This HTTPS address is reachable from a physical phone; a computer localhost address is not. If Privy allowed origins are configured, add the exact staging origin to the same Privy app before phone sign-in. The review environment shares existing testnet accounts and real test assets. It is not the published Sites frontend.
 
-## Remaining release checks
+## Public beta release
 
-The new source/build is saved for review before public frontend publication. Real-account Stock Hunt entry, wardrobe, editable profile, physical-phone touch/FPS and the previously recorded hosted-agent/MCP checks still require user verification. Public frontend publishing remains gated by those checks. Integration credentials and live GUSD offers remain operator setup, not completed external integrations. Existing USDC prize contracts and legacy recovery are preserved.
+On 2 October 2026 the owner confirmed the phone/account checks and requested continued development. Treat this as reported usability/account verification; the device model and a measured physical-device FPS value were not supplied. Version 15 was published successfully with public access at `https://memegalaxy.usamahabduljalil21.chatgpt.site/`. Its source commit is `3aa4ca22b5cdadc770a6ab4cef5c26c3077a21d6`. Unauthenticated HTTP access, production CSS loading, mobile layout and documentation links were checked after publication.
+
+The Railway MCP frontend URL now points to the public site, replacing localhost for authorization and prize-review links. MCP client-specific authenticated tool/revocation exercises and the separate mixed human/hosted-agent prize/fleet gates retain their recorded status in `MEMEGALAXY_IMPLEMENTATION.md`; phone/account confirmation does not supply those results.
+
+### Recovery and capacity follow-up
+
+Expired hunting leases are disconnected without pausing valid hunters. A database outage still suspends collection; recovery verifies the lease before restoring a connection. Spectator seats are counted separately so a room with 99 players and 20 spectators can accept its 100th player. Intentional continuous-mode exits remove cells immediately; new entries start at 100 mass with the current name/skin. Unexpected network disconnects preserve cells for the normal reconnect window. Final authenticated human peak mass is saved on exit. MCP prize-entry drafts open the current prize-review screen rather than the mode-selection lobby.
+
+Four recovery tests cover partial lease expiry, storage failures, storage recovery and disconnected leases. Three matchmaking tests cover spectators, pending admissions, full rooms and mode isolation. A disposable WebSocket drill admitted 100 players plus 20 spectators, rejected excess capacity, verified fresh reentry and retained cells through a network reconnect. Existing prize start/no-show behavior passed its regression drill. These drills use no production accounts, rewards or chain transactions.
+
+Paid skin prices, GUSD tasks and retirement rates still require operator configuration. Social verification credentials remain optional integration setup. The current USDC prize pool is zero; a future prize epoch needs at least 100 mock test USDC in the existing prize escrow. Existing contracts and legacy recovery are preserved.

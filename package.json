@@ -30,7 +30,8 @@
     "galaxy:test:economy:contracts": "tsx scripts/test-economy-contracts.ts",
     "galaxy:test:economy:flow": "tsx scripts/verify-economy-flow.ts",
     "galaxy:test:hunt:load": "tsx server/galaxy/verify-hunt-load.ts",
-    "galaxy:deploy:economy": "tsx scripts/deploy-galaxy-economy.ts"
+    "galaxy:deploy:economy": "tsx scripts/deploy-galaxy-economy.ts",
+    "galaxy:test:continuous": "tsx scripts/galaxy-continuous-room-test.ts"
   },
   "dependencies": {
     "@colyseus/core": "^0.16.24",
