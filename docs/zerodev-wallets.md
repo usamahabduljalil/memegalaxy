@@ -2,7 +2,9 @@
 
 MEMEGalaxy uses ZeroDev Wallet React with Wagmi for email OTP, passkey wallets,
 and EIP-6963-discovered external Ethereum wallets. The public project ID is
-configured through `VITE_ZERODEV_PROJECT_ID`. No wallet or platform private key
+configured through `VITE_ZERODEV_PROJECT_ID`. Email sign-in is paused by default;
+set `VITE_ZERODEV_EMAIL_ENABLED=true` only after ZeroDev support resolves OTP
+and a real email delivery and verification check succeeds. No wallet or platform private key
 is shipped to the browser. The SDK keeps its own protected signing session.
 
 ## Identity and authentication
