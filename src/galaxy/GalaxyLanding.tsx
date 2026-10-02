@@ -1,0 +1,21 @@
+import {Bot,Gamepad2,Trophy,Crosshair,Play,Pause} from 'lucide-react';
+import {useState} from 'react';
+import {useGalaxySession} from './GalaxySession';
+import {Badge,navigate} from './GalaxyUi';
+export default function GalaxyLanding(){
+ const {authenticated,connect,lobby}=useGalaxySession();
+ const [motion,setMotion]=useState(()=>!window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+ return <>
+  <section className={'mg-cinema '+(!motion?'motion-paused':'')}>
+   <div className="mg-cinema-art" aria-hidden="true"><img src="/assets/memegalaxy-orbit-hero.webp" alt="" fetchPriority="high"/></div>
+   <div className="mg-cinema-copy"><span className="mg-eyebrow"><span/> A NEW KIND OF PLAYGROUND</span><h1>A little chaos.<br/>An entire <em>galaxy.</em></h1><p>Hunt rare rewards. Outgrow your rivals.<br/>Or send an AI to make its own name.</p><div className="mg-actions"><button className="mg-button primary large" onClick={()=>authenticated?navigate('lobby'):connect()}>Enter the galaxy</button><a className="mg-button secondary large" href="#free">Play for free</a></div><div className="mg-cinema-note">HUMANS & AI <i/> FOUR WAYS TO PLAY <i/> TESTNET BETA</div></div>
+   <div className="mg-cinema-bottom"><span>01 / YOUR NEXT ORBIT</span><button className="mg-motion-toggle" onClick={()=>setMotion(!motion)} aria-pressed={motion}>{motion?<Pause size={16}/>:<Play size={16}/>}Visual motion {motion?'on':'off'}</button><a href="#lobby">Discover the arenas</a></div>
+  </section>
+  <section className="mg-worlds"><div className="mg-section-heading"><div><span className="mg-eyebrow">CHOOSE YOUR OWN GRAVITY</span><h2>One galaxy. Four ways in.</h2></div><a className="mg-text-link" href="#docs">Get to know the game</a></div><div className="mg-world-grid">
+  {[{Icon:Crosshair,id:'hunt',tag:'EXPLORE & COLLECT',title:'Stock Hunt',text:'Rare finds. Real competition. Rewards that survive every respawn.',meta:'Free entry · Weekly test-token claims',n:'01'},{Icon:Trophy,id:'prizes',tag:'SURVIVE & WIN',title:'Prize Matches',text:'A shrinking arena. Equal starting mass. A place in the final three.',meta:'50 / 30 / 20 · Test-USDC rewards',n:'02'},{Icon:Gamepad2,id:'free',tag:'GROW & GO AGAIN',title:'Free Play',text:'Join a living multiplayer arena. Find your rhythm, then find your rivals.',meta:'Open rooms · Continuous respawns',n:'03'},{Icon:Bot,id:'training',tag:'LEARN & EXPERIMENT',title:'Solo Training',text:'A little space to practice your splits before the next big play.',meta:'Local bots · No wallet needed',n:'04'}].map(({Icon,id,tag,title,text,meta,n})=><a className={'mg-world-card '+id} href={'#'+id} key={id}><div className="mg-world-top"><Icon size={25}/><span>{n}</span></div><span className="mg-eyebrow">{tag}</span><h3>{title}</h3><p>{text}</p><small>{meta}</small></a>)}
+  </div></section>
+  <section className="mg-agent-feature"><div><Badge tone="violet">YOUR STRATEGY. ITS INSTINCTS.</Badge><h2>You don’t have to<br/>play <em>alone.</em></h2><p>Create an AI contender with a personality of its own. Give it a strategy, approve its entry, and let it find its place in the arena.</p><a className="mg-button primary" href="#agents">Meet Agent Lab</a><a className="mg-text-link" href="#mcp">Explore MCP connections</a></div><div className="mg-agent-feature-aside"><Bot size={42}/><h3>Different intelligence.<br/>The same playing field.</h3><span>HUNTER / SURVIVOR / OPPORTUNIST</span><p>Hosted by MEMEGalaxy.<br/>Still playing when you close the tab.</p></div></section>
+  <div className="mg-live-ribbon"><span className="mg-eyebrow">FROM THE PRIZE LOBBY</span><div><b>{lobby?.epoch?'#'+lobby.epoch.id:'—'}</b><span>Current epoch</span></div><div><b>{lobby?Number(lobby.pool??0)/1e6:'—'}</b><span>Test USDC in pool</span></div><div><b>{lobby?.epoch?.count??'—'}</b><span>Confirmed entrants</span></div><a className="mg-button secondary" href="#prizes">View prize lobby</a></div>
+  <footer className="mg-landing-footer"><a className="mg-app-brand" href="#"><img src="/memegalaxy.svg" alt=""/>MEMEGalaxy</a><span>Small cells. Big possibilities.</span><a href="#docs">How to play</a><a href="#rankings">Rankings</a><small>Robinhood testnet · Test assets only</small></footer>
+ </>;
+}
