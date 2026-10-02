@@ -26,3 +26,5 @@
 
 /* Arenas escape the workspace and cover navigation, including Stock Hunt. */
 .mg-arena-screen{position:fixed;inset:0;z-index:80;width:100%;height:100dvh;min-height:0;overflow:hidden}.mg-arena-screen .mg-arena{height:100%;min-height:0}.mg-arena-screen .mg-gamebar{padding-top:env(safe-area-inset-top)}.mg-arena-screen .mg-controls{padding-bottom:env(safe-area-inset-bottom)}
+
+.mg-sidebar{overflow-y:auto;overscroll-behavior:contain}.mg-sidebar nav,.mg-sidebar-bottom{flex-shrink:0}

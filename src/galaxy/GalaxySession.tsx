@@ -15,7 +15,7 @@ function SessionProvider({children}:{children:ReactNode}){
  const {ready,authenticated,logout,getAccessToken}=usePrivy(),{wallets}=useWallets();
  const [selected,setSelected]=useState(()=>localStorage.getItem('mg-selected-wallet')??''),[error,setError]=useState(''),[lobby,setLobby]=useState<PrizeState>(),[chooser,setChooser]=useState(false),[verifying,setVerifying]=useState(false);
  const siwe=useLoginWithSiwe(),link=useLinkWithSiwe();
- const {login}=useLogin({onError:code=>setError('Email sign-in failed ('+code+'). Please retry.')});
+ const {login}=useLogin({onError:code=>setError(code==='exited_auth_flow'?'':'Email sign-in failed ('+code+'). Please retry.')});
  const {connectWallet}=useConnectWallet({onError:()=>setError('Wallet connection was cancelled or unavailable. Please retry.'),onSuccess:async({wallet:connected})=>{
   if(!('getEthereumProvider' in connected)){setError('Choose the Ethereum account in your wallet.');return;}
   setVerifying(true);setError('');setChooser(true);

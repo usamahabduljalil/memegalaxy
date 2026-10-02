@@ -25,7 +25,7 @@ Paid skin prices, GUSD tasks and retirement exchange rates require explicit oper
 - Five Stock Hunt rooms sustained 500 WebSocket clients, 15 Hz inputs, multi-cell simulation, 10 Hz visibility updates, drop reservations, leases and progress persistence. Latest successful run: p95 simulation 5.124 ms, broadcast 7.143 ms, total 10.988 ms; every client remained connected and the slowest received 382 updates in 40 seconds.
 - Production build verification fixed conditional lazy-import CSS preloading so the hosted MEMEGalaxy design matches development.
 - The optimized engine matched the previous implementation exactly for both existing rulesets, prize/hunt modes, 100 entrants and 600 ticks with movement, split/eject, food and nova interactions. Existing ruleset identifiers and escrow contracts remain intact.
-- Mobile viewport checks verified viewport-filling arenas (including nested Stock Hunt), scroll/focus restoration on exit, lobby, searchable/deep-linked documentation, the More menu, sound and collapsible leaders. A 390×844 desktop-browser viewport measured 142 FPS in solo training; this is emulation, not a physical-phone performance certification.
+- Mobile viewport checks verified viewport-filling arenas (including nested Stock Hunt), scroll/focus restoration on exit, scrollable navigation on shorter screens, normal dismissal of email login without a false failure alert, lobby, searchable/deep-linked documentation, the More menu, sound and collapsible leaders. A 390×844 desktop-browser viewport measured 142 FPS in solo training; this is emulation, not a physical-phone performance certification.
 
 ## Operator setup
 
