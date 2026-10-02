@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { Pool } from 'pg';
+import {economySchema} from './economy-schema';
 export const db=new Pool({connectionString:process.env.MEMEGALAXY_DATABASE_URL??process.env.DATABASE_URL,max:10,connectionTimeoutMillis:5000});
 export const persistent=!!(process.env.MEMEGALAXY_DATABASE_URL??process.env.DATABASE_URL);
 export async function migrateGalaxy(){const client=await db.connect();try{await client.query('BEGIN');await client.query("SELECT pg_advisory_xact_lock(hashtext('memegalaxy-schema'))");await client.query(`
@@ -32,4 +33,4 @@ CREATE TABLE IF NOT EXISTS mg_practice_days(owner text NOT NULL,day text NOT NUL
 CREATE TABLE IF NOT EXISTS mg_entry_drafts(id uuid PRIMARY KEY,owner text NOT NULL,wallet text NOT NULL,epoch bigint NOT NULL,agent_id uuid,deposit text NOT NULL,idempotency text NOT NULL,expires_at timestamptz NOT NULL,UNIQUE(owner,idempotency));
 CREATE TABLE IF NOT EXISTS mg_oauth(id text NOT NULL,type text NOT NULL,payload jsonb NOT NULL,expires_at timestamptz,consumed_at timestamptz,PRIMARY KEY(type,id));
 CREATE TABLE IF NOT EXISTS mg_mcp_connections(grant_id text PRIMARY KEY,owner text NOT NULL,client_id text NOT NULL,name text NOT NULL DEFAULT 'MCP client',verified_at timestamptz,revoked_at timestamptz,created_at timestamptz NOT NULL DEFAULT now());
-`);await client.query('COMMIT');}catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}}
+`);await economySchema(client);await client.query('COMMIT');}catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}}

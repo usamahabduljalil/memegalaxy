@@ -2,7 +2,8 @@ import './polyfills';
 import React,{lazy,Suspense} from 'react';
 import { createRoot } from 'react-dom/client';
 const isGalaxy=import.meta.env.DEV||location.hostname==='memegalaxy.usamahabduljalil21.chatgpt.site'||import.meta.env.VITE_MEMEGALAXY_LIVE==='true'||new URLSearchParams(location.search).get('preview')==='memegalaxy';
-const App=lazy(()=>isGalaxy?import('./galaxy/GalaxyExperience'):import('./Experience'));
+// Keep each dynamic import separate so Vite preloads its matching CSS.
+const App=isGalaxy?lazy(()=>import('./galaxy/GalaxyExperience')):lazy(()=>import('./Experience'));
 import './style.css';
 import './game.css';
 import './orbit-theme.css';

@@ -1,8 +1,8 @@
-# Big Circle
+# MEMEGalaxy
 
 
 
-An Arc-testnet multiplayer survival game. Combat changes **game mass**; deposits are returned. Funded play is disabled until all services and contracts are configured. Mainnet is explicitly rejected by the server, deployment script, and test-token contracts.
+MEMEGalaxy is an authoritative multiplayer cosmic arena on Robinhood Chain testnet. It includes human and hosted-agent play, USDC prize matches, Stock Hunt, skins and in-app GUSD credits. See [current implementation](MEMEGALAXY_IMPLEMENTATION.md) and [Stock Hunt release checks](STOCK_HUNT_RELEASE.md). Mainnet remains disabled. The Arc instructions below are retained for legacy recovery.
 
 
 

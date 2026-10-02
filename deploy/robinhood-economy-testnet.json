@@ -1,0 +1,35 @@
+{
+  "chainId": 46630,
+  "admin": "0x82EacD27A39A68f78e43a1C2e3F3b920b29a7652",
+  "publisher": "0x66845441Bb1c30929A654063A71599Ce8602f77A",
+  "quoter": "0x66845441Bb1c30929A654063A71599Ce8602f77A",
+  "token": "0xf8ce23c2ffa7ec6946dd663b786210336d46cfbc",
+  "vault": "0xcdc2383eeae734ea8ab0b6f99e1fcc92bdcf4c58",
+  "retirement": "0xe9d53a3838805a3f499d04d9b40b1b98187cdfdc",
+  "vaultDeployment": "0x07881be31b079667d0c19d68fcd6ff2285c7412a05f23b698deeceaee9db5b37",
+  "retirementDeployment": "0x9cb1284a0982ce6f1e2fecac802a0ae71aceda9a8bedf6af34757e3ef830c0bd",
+  "assets": [
+    {
+      "symbol": "TSLA",
+      "address": "0xc9f9c86933092bbbfff3ccb4b105a4a94bf3bd4e",
+      "decimals": 18
+    },
+    {
+      "symbol": "AMZN",
+      "address": "0x5884ad2f920c162cfbbacc88c9c51aa75ec09e02",
+      "decimals": 18
+    },
+    {
+      "symbol": "NFLX",
+      "address": "0x3b8262a63d25f0477c4dde23f83cfe22cb768c93",
+      "decimals": 18
+    }
+  ],
+  "seedPerAsset": "1",
+  "funding": {
+    "TSLA": "0x5066e4f3f36f3d651a23d5c53a5b3bedccea00cf4ba1e0e551856912ed8b917d",
+    "AMZN": "0xf6e3ec42675b76b3ba1c6b8ca0a5aa72294c39a81fc8801cf0a3110ccab80a0a",
+    "NFLX": "0xb1bb8c685d4bd5f0f4ac614c69402d141eadf936951c04d895ee54681ad9b0ab"
+  },
+  "startBlock": 127248810
+}

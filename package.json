@@ -26,7 +26,11 @@
     "galaxy:worker": "tsx server/galaxy/worker.ts",
     "galaxy:deploy": "tsx scripts/deploy-galaxy.ts",
     "galaxy:test:sockets": "tsx scripts/galaxy-socket-test.ts",
-    "galaxy:runtime": "tsx server/galaxy/runtime.ts"
+    "galaxy:runtime": "tsx server/galaxy/runtime.ts",
+    "galaxy:test:economy:contracts": "tsx scripts/test-economy-contracts.ts",
+    "galaxy:test:economy:flow": "tsx scripts/verify-economy-flow.ts",
+    "galaxy:test:hunt:load": "tsx server/galaxy/verify-hunt-load.ts",
+    "galaxy:deploy:economy": "tsx scripts/deploy-galaxy-economy.ts"
   },
   "dependencies": {
     "@colyseus/core": "^0.16.24",

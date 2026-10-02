@@ -2,6 +2,10 @@ import {spawn,execFileSync,type ChildProcess} from 'node:child_process';
 export {};
 const role=process.env.SERVICE_ROLE||process.argv[2];
 if(role==='galaxy-game'){
+ if(process.env.MEMEGALAXY_VERIFY_ECONOMY_FLOW==='true')execFileSync(process.execPath,['--import','tsx','scripts/verify-economy-flow.ts'],{stdio:'inherit',timeout:180000});
+ if(process.env.MEMEGALAXY_VERIFY_ECONOMY==='true')execFileSync(process.execPath,['--import','tsx','server/galaxy/verify-economy.ts'],{stdio:'inherit',timeout:120000});
+ if(process.env.MEMEGALAXY_VERIFY_HUNT_LOAD==='true')execFileSync(process.execPath,['--import','tsx','server/galaxy/verify-hunt-load.ts'],{stdio:'inherit',timeout:180000});
+ if(process.env.MEMEGALAXY_ACTIVATE_TEST_HUNT==='true')execFileSync(process.execPath,['--import','tsx','server/galaxy/activate-hunt.ts'],{stdio:'inherit',timeout:120000});
  if(process.env.MEMEGALAXY_VERIFY_HOSTED==='true')execFileSync(process.execPath,['--import','tsx','server/galaxy/verify-platform.ts'],{stdio:'inherit',timeout:60000});
  await import('./galaxy/index');
  if(process.env.MEMEGALAXY_HOSTED_RUNTIME==='true'){

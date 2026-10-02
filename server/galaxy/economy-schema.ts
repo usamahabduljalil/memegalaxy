@@ -1,0 +1,36 @@
+import type {PoolClient} from 'pg';
+import {SKINS,STOCK_ASSETS,HUNT_DEFAULTS} from '../../shared/galaxy/economy';
+export async function economySchema(c:PoolClient){await c.query(`
+CREATE TABLE IF NOT EXISTS mg_profiles(owner text PRIMARY KEY,name varchar(24) NOT NULL DEFAULT 'Explorer',skin text NOT NULL DEFAULT 'luna',peak_mass double precision NOT NULL DEFAULT 100,active_seconds bigint NOT NULL DEFAULT 0,updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_economy_config(version serial PRIMARY KEY,settings jsonb NOT NULL,actor text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_stock_assets(address text PRIMARY KEY,symbol text NOT NULL,decimals integer NOT NULL,enabled boolean NOT NULL DEFAULT false,balance numeric(78,0) NOT NULL DEFAULT 0,observed_at timestamptz);
+ALTER TABLE mg_stock_assets ADD COLUMN IF NOT EXISTS external_liability numeric(78,0) NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS mg_skins(id text PRIMARY KEY,config jsonb NOT NULL,price bigint CHECK(price>=0),published boolean NOT NULL DEFAULT true,version integer NOT NULL DEFAULT 1);
+CREATE TABLE IF NOT EXISTS mg_skin_inventory(owner text NOT NULL,skin text NOT NULL REFERENCES mg_skins(id),method text NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(owner,skin));
+CREATE TABLE IF NOT EXISTS mg_credit_accounts(owner text PRIMARY KEY,balance bigint NOT NULL DEFAULT 0 CHECK(balance>=0));
+CREATE TABLE IF NOT EXISTS mg_credit_ledger(id bigserial PRIMARY KEY,owner text NOT NULL,delta bigint NOT NULL CHECK(delta<>0),kind text NOT NULL,reference text NOT NULL UNIQUE,actor text,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_hunt_sessions(id uuid PRIMARY KEY,owner text NOT NULL,wallet text NOT NULL,player_id text NOT NULL,room_id text NOT NULL,skin text NOT NULL,multiplier integer NOT NULL CHECK(multiplier BETWEEN 10000 AND 20000),lease_until timestamptz NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX IF NOT EXISTS mg_hunt_owner ON mg_hunt_sessions(owner);
+CREATE UNIQUE INDEX IF NOT EXISTS mg_hunt_wallet ON mg_hunt_sessions(wallet);
+CREATE TABLE IF NOT EXISTS mg_stock_drops(id uuid PRIMARY KEY,room_id text NOT NULL,asset text NOT NULL REFERENCES mg_stock_assets(address),reserved numeric(78,0) NOT NULL,base numeric(78,0) NOT NULL,config_version integer NOT NULL,config jsonb NOT NULL,state text NOT NULL DEFAULT 'reserved',expires_at timestamptz NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_stock_rewards(id uuid PRIMARY KEY,drop_id uuid NOT NULL UNIQUE REFERENCES mg_stock_drops(id),owner text NOT NULL,wallet text NOT NULL,asset text NOT NULL,amount numeric(78,0) NOT NULL CHECK(amount>0),skin text NOT NULL,multiplier integer NOT NULL,config_version integer NOT NULL,week bigint NOT NULL,day date NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS mg_reward_day ON mg_stock_rewards(day,owner,wallet);
+CREATE TABLE IF NOT EXISTS mg_stock_weeks(asset text NOT NULL,week bigint NOT NULL,root text NOT NULL,total numeric(78,0) NOT NULL,state text NOT NULL DEFAULT 'prepared',hash text,PRIMARY KEY(asset,week));
+CREATE TABLE IF NOT EXISTS mg_stock_claims(asset text NOT NULL,week bigint NOT NULL,idx integer NOT NULL,wallet text NOT NULL,amount numeric(78,0) NOT NULL,proof jsonb NOT NULL,claimed boolean NOT NULL DEFAULT false,hash text,PRIMARY KEY(asset,week,idx));
+CREATE TABLE IF NOT EXISTS mg_retire_quotes(id text PRIMARY KEY,owner text NOT NULL,owner_hash text NOT NULL,wallet text NOT NULL,amount numeric(78,0) NOT NULL,credits bigint NOT NULL,version integer NOT NULL,expiry bigint NOT NULL,signature text NOT NULL,hash text,status text NOT NULL DEFAULT 'quoted',block_hash text,block_number bigint,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_tasks(id uuid PRIMARY KEY,title varchar(100) NOT NULL,instructions varchar(2000) NOT NULL,platform text NOT NULL,target text NOT NULL,reward bigint NOT NULL CHECK(reward>0),budget bigint NOT NULL CHECK(budget>=0),spent bigint NOT NULL DEFAULT 0,max_participants integer NOT NULL CHECK(max_participants>0),starts_at timestamptz NOT NULL,ends_at timestamptz NOT NULL,enabled boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_social_links(owner text NOT NULL,platform text NOT NULL,identity text NOT NULL,verified boolean NOT NULL DEFAULT false,PRIMARY KEY(owner,platform),UNIQUE(platform,identity));
+ALTER TABLE mg_social_links ADD COLUMN IF NOT EXISTS credential text;
+ALTER TABLE mg_social_links ADD COLUMN IF NOT EXISTS expires_at timestamptz;
+CREATE TABLE IF NOT EXISTS mg_x_oauth(state text PRIMARY KEY,owner text NOT NULL,verifier text NOT NULL,expires_at timestamptz NOT NULL);
+CREATE TABLE IF NOT EXISTS mg_task_submissions(id uuid PRIMARY KEY,task_id uuid NOT NULL REFERENCES mg_tasks(id),owner text NOT NULL,identity text NOT NULL,proof varchar(2000) NOT NULL,status text NOT NULL DEFAULT 'pending',reason varchar(500),reviewer text,created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(task_id,owner),UNIQUE(task_id,identity));
+CREATE TABLE IF NOT EXISTS mg_economy_audit(id bigserial PRIMARY KEY,actor text NOT NULL,action text NOT NULL,subject text NOT NULL,detail jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_economy_transactions(id text PRIMARY KEY,hash text NOT NULL,raw text,nonce bigint NOT NULL,status text NOT NULL);
+CREATE TABLE IF NOT EXISTS mg_progress_cursors(room_id text NOT NULL,player_id text NOT NULL,tick bigint NOT NULL,PRIMARY KEY(room_id,player_id));
+ALTER TABLE mg_profiles ADD COLUMN IF NOT EXISTS progress_at timestamptz;
+CREATE TABLE IF NOT EXISTS mg_economy_cursors(id text PRIMARY KEY,block_number bigint NOT NULL);
+`);
+ for(const skin of SKINS)await c.query('INSERT INTO mg_skins(id,config) VALUES($1,$2) ON CONFLICT DO NOTHING',[skin.id,skin]);
+ for(const asset of STOCK_ASSETS)await c.query('INSERT INTO mg_stock_assets(address,symbol,decimals) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[asset.address,asset.symbol,asset.decimals]);
+ await c.query("INSERT INTO mg_economy_config(settings,actor) SELECT $1,'bootstrap' WHERE NOT EXISTS(SELECT 1 FROM mg_economy_config)",[{...HUNT_DEFAULTS,enabled:false,retirement:{enabled:false,version:0,tokens:'0',credits:0}}]);
+}

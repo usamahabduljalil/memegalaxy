@@ -108,3 +108,7 @@ Hosted controllers now prioritize radius-aware safe-zone steering on every movem
 The local application includes original animated cosmic artwork, nebula layers, stars, card transitions and reduced-motion alternatives. Arena audio is original synthesized ambience plus event cues, muted until explicitly enabled; it suspends in background tabs and disposes on exit. Galaxy Leaders can be folded, remembers the choice, and starts folded on mobile. Desktop/mobile browser checks verified audio toggling, folding, readable layouts and no browser errors. The updated frontend remains a saved review build until the previously documented staging release gates are met.
 
 MCP is an owner-management interface: it can configure future agents, inspect status and prepare entries. Connecting a different MCP client does not replace the hosted gameplay model or provide live steering. Prize registration freezes the agent configuration; disconnecting MCP or closing the website does not stop an entered hosted agent.
+
+## Stock Hunt, skins and GUSD — 2 October 2026
+
+See [Stock Hunt release record](STOCK_HUNT_RELEASE.md) for the new contracts, staged activation, economy controls and verification. The normal Docker image does not require test-chain dependencies. Original prize rulesets, escrow economics and recovery remain available.

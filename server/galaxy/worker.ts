@@ -1,3 +1,4 @@
+import {economyCycle} from './economy-worker';
 import 'dotenv/config';
 import { awardStats } from './stats';
 import { randomBytes } from 'node:crypto';
@@ -76,4 +77,4 @@ async function cycle(){await reconcile();const e=await epoch();if(!e||e.status==
 }
 async function reconcileClosedJobs(epochId:bigint){const jobs=(await db.query('SELECT j.id,j.arena,m.result FROM mg_jobs j LEFT JOIN mg_matches m ON m.id=j.room_id WHERE j.deployment=$1 AND j.epoch=$2',[deployment,epochId.toString()])).rows;for(const job of jobs){const arena=await read('arenaInfo',[epochId,BigInt(job.arena)]);if(arena.status===2&&job.result)await awardStats(job.id,job.result);if(arena.status===2||arena.status===3)await db.query('UPDATE mg_jobs SET status=$2 WHERE id=$1',[job.id,arena.status===2?'settled':'refunded']);}}
 async function payout(){const rows=(await db.query("SELECT x.* FROM mg_entries x JOIN mg_epochs e ON e.deployment=x.deployment AND e.id=x.epoch WHERE x.deployment=$1 AND x.confirmed AND e.status='closed'",[deployment])).rows;for(const r of rows){const id=BigInt(r.epoch),entry=await read('entryInfo',[id,r.wallet]);for(const [fn,done]of [['claimToken',entry[3]],['claimUSDC',entry[4]]]as const){if(done)continue;try{await transact(`${fn}:${id}:${r.wallet}`,fn,[id,r.wallet],id,r.wallet);}catch{console.warn('Payout remains claimable',fn,r.wallet);}}}}
-let busy=false;const timer=setInterval(async()=>{if(busy)return;busy=true;try{await cycle();}catch(e){console.error('MEMEGalaxy worker:',e instanceof Error?e.message:'cycle failed');}finally{busy=false;}},2000);console.log('MEMEGalaxy testnet worker running');process.on('SIGTERM',()=>{clearInterval(timer);void db.end();});
+let busy=false;const timer=setInterval(async()=>{if(busy)return;busy=true;try{await cycle();}catch(e){console.error('MEMEGalaxy worker:',e instanceof Error?e.message:'cycle failed');}finally{try{await economyCycle();}catch(e){console.error('Economy worker:',e instanceof Error?e.message:'cycle failed');}busy=false;}},2000);console.log('MEMEGalaxy testnet worker running');process.on('SIGTERM',()=>{clearInterval(timer);void db.end();});
