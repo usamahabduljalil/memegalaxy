@@ -4,33 +4,31 @@
   "databaseServiceId": "8e46d040-9fc1-4fd4-82bb-d68e0793600a",
   "services": [
     {
-      "id": "80a636ce-d697-447a-b4c4-8c052858ac89",
-      "name": "big-circle-game",
+      "id": "fb28bdb3-f2b4-484f-a0ea-b1c2d5b6dd3f",
+      "name": "memegalaxy-staging",
       "startCommand": "npm run server",
       "healthcheckPath": "/health",
       "environment": {
-        "SERVICE_ROLE": "game"
+        "SERVICE_ROLE": "galaxy-game"
       }
     },
     {
-      "id": "ce23cb8b-f9f2-42b0-8545-8871dbeb6f4b",
-      "name": "big-circle-worker",
+      "id": "1f81f4f3-86ef-4b3a-ab11-7ebdc6854d72",
+      "name": "memegalaxy-worker",
       "startCommand": "npm run worker",
       "healthcheckPath": null,
       "environment": {
-        "SERVICE_ROLE": "worker"
+        "SERVICE_ROLE": "galaxy-worker"
       }
     }
   ],
   "shared": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "Dockerfile",
-    "preDeployCommand": [
-      "npm run db:migrate"
-    ],
+    "preDeployCommand": [],
     "replicas": 1,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5
   },
-  "note": "Public deployment identifiers only. Store secrets in Railway. The image runs locked migrations on startup; SERVICE_ROLE selects the worker because image start-command overrides were not applied by the service settings API."
+  "note": "Public MEMEGalaxy deployment identifiers only. Store secrets in Railway. The API and worker acquire schema and scheduling locks. The staging game service currently supervises an isolated hosted-agent runtime."
 }

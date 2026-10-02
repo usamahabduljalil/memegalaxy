@@ -1,200 +1,108 @@
 # MEMEGalaxy
 
+A cosmic multiplayer arena where humans and hosted AI agents compete through the same authoritative engine. The browser app includes Stock Hunt, Prize Matches, Free Play, Solo Training, skins, GalaxyUsd (GUSD) credits, weekly rewards, and MCP agent management.
 
+**Robinhood Chain testnet only — chain ID 46630.** ETH pays gas. Financial assets and seeded prizes are test assets; mainnet is disabled.
 
-MEMEGalaxy is an authoritative multiplayer cosmic arena on Robinhood Chain testnet. It includes human and hosted-agent play, USDC prize matches, Stock Hunt, skins and in-app GUSD credits. See [current implementation](MEMEGALAXY_IMPLEMENTATION.md) and [Stock Hunt release checks](STOCK_HUNT_RELEASE.md). Mainnet remains disabled. The Arc instructions below are retained for legacy recovery.
+Public app: [MEMEGalaxy](https://memegalaxy.usamahabduljalil21.chatgpt.site/).
 
+## Game modes and rewards
 
+| Mode | Experience | Rewards |
+| --- | --- | --- |
+| Stock Hunt | Human-only continuous multiplayer, rare pickups, respawning, no deposit or minimum population | Funded test Stock Tokens, with weekly Monday claims in Africa/Lagos |
+| Prize Matches | Equal starting mass, shrinking safe zone, permanent elimination | Final three share the arena's test-USDC allocation 50% / 30% / 20% |
+| Free Play | Ongoing multiplayer with humans and agents, food, splitting, merging, nova cores, and respawning | Statistics and achievement progress; no financial rewards |
+| Solo Training | Local practice with clearly labeled bots | No financial rewards or online achievements |
+
+Partner task campaigns are the intended Stock Hunt revenue source. Tasks can include testing partner applications, social participation, or creating artwork. Verified task rewards grant non-transferable GUSD credits; achievements and GUSD unlock skins. A frozen equipped skin can multiply Stock Hunt pickups up to 2×, without changing combat or prize payouts. GUSD has no dollar peg or cash redemption.
+
+The intended Prize Match funding source is MEMEGALAXY token-tax revenue. Automated launchpad collection and conversion are separate mainnet work. Current testnet pools are funded directly and must never be presented as collected tax or partner revenue.
 
 ## Run locally
 
-
-
 Requires Node.js 22+, npm, and Docker Desktop for PostgreSQL.
 
-
-
 ```powershell
-
-npm install --legacy-peer-deps
-
+npm ci --legacy-peer-deps
 Copy-Item .env.example .env
-
-npm run dev
-
-```
-
-
-
-The browser app and free practice work without credentials. To run the game API in unconfigured mode:
-
-
-
-```powershell
-
+docker compose up -d db
+npm run db:migrate
 npm run server
-
 ```
 
-
-
-For funded testnet epochs, configure `.env`, start PostgreSQL with `docker compose up -d db`, then run `npm run db:migrate`, `npm run server`, and `npm run worker` in separate terminals. Alternatively `docker compose up --build` runs all three services. Only one game service and one settlement worker instance are supported. Database advisory locks prevent duplicate leaders.
-
-
-
-## Privy
-
-
-
-Create a web app in the Privy dashboard, enable email sign-in, and allow `http://localhost:5173` and `http://127.0.0.1:5173` plus the final Sites origin. Set `VITE_PRIVY_APP_ID` and `PRIVY_APP_ID` to the public app ID. Set `PRIVY_APP_SECRET` only on the API service. Wallet creation uses Privy's embedded Ethereum wallet; users do not grant the game signing authority over their wallets.
-
-
-
-Generate a random secret of at least 32 characters for `ADMISSION_SECRET`, shared only by server services. `WEB_ORIGINS` is a comma-separated allowlist of exact browser origins. Neither an email string sent by the browser nor a user-provided wallet address authorizes an entry.
-
-
-
-## Arc testnet contracts
-
-
-
-The environment template uses Arc’s documented USDC interface at `0x3600000000000000000000000000000000000000` ([official reference](https://docs.arc.io/integrate/infrastructure/indexing-events)). Verify it against the connected testnet before deployment; application transfers use six decimals. Native USDC gas uses 18 decimals and shares its underlying balance with this interface. Never add both representations as if they were independent balances.
-
-
-
-Configure separate testnet `DEPLOYER_PRIVATE_KEY`, `RESULT_SIGNER_PRIVATE_KEY`, and `REGISTRAR_PRIVATE_KEY` secrets, and public `ADMIN_ADDRESS` and `OPERATIONS_ADDRESS`. Fund the deployer and result signer with testnet USDC for gas. Keep all keys outside Git and the browser environment.
-
-
+In another terminal:
 
 ```powershell
+npm run dev
+```
 
+Open `http://127.0.0.1:5173`. The API uses port 2568. Local PostgreSQL uses port 5433. Solo Training runs without a database; authenticated hunting, profiles, and economy features need the persistent API. For a complete containerized local service, use `docker compose up --build`. The worker is an optional Compose profile: `docker compose --profile prizes up --build`.
+
+## Wallets and configuration
+
+ZeroDev, Wagmi and viem support passkeys and discovered external Ethereum wallets. Email OTP is temporarily paused while ZeroDev support resolves provider initialization; keep `VITE_ZERODEV_EMAIL_ENABLED=false` until actual email delivery and verification succeed.
+
+The API verifies a single-use, origin-bound wallet ownership challenge on Robinhood testnet before issuing a hashed, revocable application session. The selected wallet owns its profile, agents, inventory, and GUSD; each financial entry freezes its payout recipient. See [wallet setup](docs/zerodev-wallets.md).
+
+Copy the root environment template and configure:
+
+- Public browser settings: `VITE_MEMEGALAXY_API_URL`, `VITE_ZERODEV_PROJECT_ID`.
+- Persistent API settings: `MEMEGALAXY_DATABASE_URL`, `MEMEGALAXY_ADMISSION_SECRET`, `MEMEGALAXY_WEB_ORIGINS`, `MEMEGALAXY_API_URL`, `MEMEGALAXY_SITE_URL`.
+- Prize settings: `MEMEGALAXY_ENABLE_PRIZES`, current escrow/token/USDC/faucet addresses, and `MEMEGALAXY_ENTROPY_SOURCE=contract`.
+- Server-only keys: registrar, result signer, optional operator, OpenAI API, and MCP signing/cookie secrets. Keep the deployer key local. Never prefix secrets with `VITE_`.
+- Economy settings: funded hunt vault, retirement sink, deployment block, explicit operator allowlist, confirmation threshold, and optional social-verification integrations.
+
+Use `deploy/memegalaxy.env.example` for server deployments. No paid offer is automatically activated from example settings.
+
+## Architecture and repository
+
+- `src/galaxy`: React/Vite application, Phaser rendering, responsive navigation, sound, reduced motion, wallet review dialogs, profiles, rewards, and documentation.
+- `shared/galaxy`: versioned deterministic rules, multi-cell simulation, spatial indexing, visibility-filtered observations, ranking, drops, wire encoding, and replay decoding.
+- `server/galaxy`: Colyseus rooms, Express `/api/v2` APIs, PostgreSQL state, scheduling, settlement, reward accounting, OAuth/MCP, and hosted-agent runtime.
+- `sdk` and `agent-kit`: optional TypeScript integration for external agent developers. The primary app hosts agents without a runner download.
+- `contracts`: MEMEGalaxy test-token/faucet, Robinhood escrow versions, mock test USDC, Stock Hunt Merkle reward vault, and permanent retirement sink.
+- `deploy`: public Robinhood deployment addresses and transaction metadata. Historical Robinhood records retain their original contract and ruleset.
+
+Simulation runs at 30 Hz with 10 Hz state synchronization. Clients and agents submit the same rate-limited MOVE, WAIT, SPLIT and EJECT actions. The server determines movement, eating, mass, hazards and results. CHASE/ESCAPE are SDK strategies translated into primitive actions, with no engine privileges.
+
+Hosted agents use asynchronous strategic model decisions and a local movement controller. A model request never blocks physics. Daily platform inference is capped at $10, resetting at midnight Africa/Lagos; a run defaults to a $0.25 budget. Provider or budget failures use the visible local survival policy. MCP can manage owned agents and prepare an expiring entry-review link; it cannot sign wallet transactions or replace the frozen match controller.
+
+## Robinhood test contracts
+
+Current prize deployment: [v4 manifest](deploy/robinhood-testnet-v4.json). Stock Hunt and retirement deployment: [economy manifest](deploy/robinhood-economy-testnet.json).
+
+The test MEMEGALAXY supply is fixed at one billion. Test USDC has six decimals; ETH gas has eighteen. Prize admission requires a refundable minimum 1,000-MEMEGALAXY deposit and a 1-test-USDC fee. A funded epoch starts with at least ten confirmed entrants and 100 test USDC; up to 500 entrants are balanced across arenas of at most 100. The shared pool is capped at 1,000 test USDC. Underfilled registration rolls over for five minutes without charging again.
+
+Deposits, entry fees, prizes, operating fees, and Stock Hunt liabilities remain separately accounted for. Cancellation, individually retryable payments, permissionless claims, and arena recovery remain available under their contract rules. Unresolved current prize arenas recover two hours after start; settlement and recovery are mutually exclusive. Stock Hunt allocations use immutable, funded Merkle claims with frozen recipients. Its initial vault has no admin withdrawal function.
+
+```powershell
 npm run contracts:compile
-
-npm run deploy:contracts
-
-```
-
-
-
-The deployer issues exactly 1,000,000,000 **test** DOMINATE and transfers that supply to the faucet. Each wallet can claim 10,000 test tokens every 24 hours. The faucet uses existing supply, never inflation. The faucet is rate-limited per wallet, not a proof-of-person system.
-
-
-
-The deployment script saves only public addresses to `.local/deployment.json`. Copy each address to its matching server variable and `VITE_` browser variable. Seed the escrow directly with at least 100 test USDC; top-ups are available to future epochs and exclude escrowed fees and reserved prizes. The first beta uses explicitly labeled seed funding, not an Argus tax integration. Set `ENABLE_PAID_EPOCHS=true` only after all services are healthy.
-
-
-
-The browser requests exact token and USDC allowances and signs the entry transaction after showing a gas estimate. A cancellation returns principal and entry fee, not gas already consumed. Successful arena entry fees are owed to the fixed operations address. Anyone can call `payOperations()` to send accrued fees there.
-
-
-
-## Railway and Sites
-
-
-
-Create one Railway project with PostgreSQL, a game service, and a settlement worker from this repository. Use the included Dockerfile, which installs only the locked server runtime dependencies. Public service IDs and settings are recorded in `deploy/railway-services.json`; apply these in Railway service settings (legacy `railway.json` is no longer accepted for new services). The game service runs `npm run server`; the worker overrides the start command to `npm run worker` and removes the HTTP healthcheck. Run `npm run db:migrate` as the pre-deploy command; migrations use a PostgreSQL transaction and advisory lock. Keep the PostgreSQL connection private and enable database backups. Expose HTTPS on game port 2567. The worker has no public port.
-
-
-
-Configure server-only values on Railway; do not prefix private keys with `VITE_`. Set `VITE_API_URL` to the game HTTPS origin and `VITE_WS_URL` to the same host with `wss://`. Rebuild the frontend after changing public variables. Publish the static Vite `dist` output through the existing Sites project in `.openai/hosting.json` and set its access to public only for the completed beta. Add that exact origin to Privy and `WEB_ORIGINS`.
-
-
-
-The game service acquires its database leader lock. During replacement deployments it can start in standby; funded entries remain disabled until the old process exits and leadership transfers. The worker also waits for its exclusive database lock. On restart, interrupted arenas become invalid and their entry fees become refundable. The worker reconciles signed transactions and chain state before submitting new operations. Run graceful deployments between epochs where possible; do not scale the game service beyond one instance without implementing shared Colyseus presence and routing.
-
-
-
-## Interfaces and operational model
-
-
-
-- `GET /api/lobby`: chain-confirmed epoch, prize funding, service readiness, and arenas.
-
-- `GET /api/me`, `PUT /api/profile`: verified Privy player, display name, entries, and payout history.
-
-- `POST /api/entry/authorize`: short-lived EIP-712 authorization for the verified embedded wallet and exact deposit.
-
-- `POST /api/arenas/:id/admission`: 60-second, arena-specific admission credential for a confirmed entrant.
-
-- `GET /api/arenas/:id/replay`: completed replay chunks, revealed seed, roster, result, and digest.
-
-- Colyseus `arena` room: client `input` messages carry normalized direction and increasing sequence; server sends `identity`, an initial `snapshot`, compact `frame` updates, `result`, and `invalid` messages.
-
-
-
-Clients never submit outcomes or authoritative positions. Simulation runs at 30 Hz; snapshots are sent at 10 Hz. Snapshot updates omit repeated roster metadata and stagger across arenas to reduce transmission spikes. Complete game rules are versioned in `shared/economics.ts` and `shared/game.ts`. Randomness combines the precommitted secret with a later chain block; assignment is reproducible. The result signer remains trusted to judge matches. Replays expose its decisions; they are not a cryptographic proof of fair execution.
-
-
-
-The contract separates fee, prize, operations, and token liabilities. Arena settlement is bounded to three distinct members of that frozen arena. Refunds and prizes use fixed wallet recipients. Each token return and each USDC transfer is independently retryable. An unresolved arena can be recovered permissionlessly one hour after its scheduled deadline; valid arenas cannot be overwritten by recovery. Entries can be paused without disabling withdrawals. After the recovery deadline, a resolved arena’s deposits can be returned even if another arena remains unresolved. The wallet includes direct onchain entry lookup, cancellation, recovery, and claims that do not depend on the game API.
-
-
-
-## Verification
-
-
-
-```powershell
-
-npm test
-
 npm run test:contracts
-
-npm run test:load
-
-npm run test:sockets
-
-npm run build
-
+npm run galaxy:test:economy:contracts
 ```
 
+These tests use isolated chains and no real funds. Deployment requires configured test-only keys and testnet ETH; no contract deployment is necessary for source maintenance.
 
+## Deployment
 
-Contract tests use an isolated in-process chain with no real funds. The simulation benchmark measures ten arenas with 500 players. The socket benchmark adds 500 actual loopback Colyseus connections, isolated client workers, 30 Hz simulation, and 10 Hz compact updates. It is not a substitute for testing the deployed service over real mobile networks. Live Privy email delivery, funded Arc matches, Railway restarts, and representative physical mobile FPS require configured external services/devices and must be verified before announcing a public funded beta.
+Railway hosts the persistent API, PostgreSQL and settlement worker. The Docker image installs locked server dependencies. `SERVICE_ROLE` selects `galaxy-game`, `galaxy-worker` or `galaxy-agent`; database migrations run under exclusive ownership. The current hosting plan runs the hosted-agent controller as an isolated supervised child of the game service. A dedicated runtime service remains a future hosting upgrade.
 
+Keep secrets in Railway variables. Publish the Vite `dist` output through the existing Sites project in `.openai/hosting.json`; allow the exact public origin in ZeroDev and the API. Changing browser configuration requires rebuilding the frontend. Deploy between prize matches when possible: interrupted authoritative rooms must be invalidated/refunded unless their checkpoint and input log can be verified completely.
 
-
-Monitor `/health`, `service_health`, arena heartbeats, replay persistence, `transactions` stuck in `submitted`, and signer gas. Inspect a pending transaction by its hash; never manually resend a different transfer without first resolving the original. Keep old epoch secrets and replay logs backed up. An expired entropy request closes that epoch for refunds instead of allowing the operator to reroll it.
-
-
-
-## Mainnet is a separate release
-
-
-
-Before real-money activation, inspect the actual Argus token and creator-reward contracts, confirm a USDC reward pair and creator allocation, verify whether transfers are taxed, implement and test the creator-fund forwarding adapter, independently review the contracts, and determine applicable operating-market requirements. The testnet code rejects fee-on-transfer deposits rather than silently undercollateralizing users. Do not put a creator wallet private key in the browser or send it through chat.
-
-
-
-## Replay inspection
-
-
-
-Download a completed arena’s replay JSON from the lobby, then run:
-
-
+## Verification and operations
 
 ```powershell
-
-npm run replay:verify -- path/to/replay.json
-
+npm test
+npm run build
+npm run test:load
+npm run test:sockets
+npm run check:readiness
+npm run replay:verify -- COMPLETED_ROOM_ID
 ```
 
+Contract and database verification commands have additional configured-service requirements. Hosted replay verification retrieves a completed MEMEGalaxy room, reproduces the recorded ruleset and inputs, and compares the published ranking.
 
+See [release status](RELEASE_STATUS.md), [implementation history](MEMEGALAXY_IMPLEMENTATION.md), and [Stock Hunt verification](STOCK_HUNT_RELEASE.md). A completed all-human testnet prize match establishes the baseline. Mixed human/hosted-agent payout matches, client-specific authenticated MCP exercises, realistic hosted-controller fleet traffic, and measured physical-device FPS remain separate acceptance checks.
 
-The verifier checks contiguous chunks, the canonical SHA-256 digest, and a deterministic rerun of every connection and movement event against the published standings. Canonical object-key ordering keeps hashes stable when PostgreSQL JSONB reorders keys. Verify the published digest against the arena settlement event on Arc. A matching replay establishes consistency with the recorded inputs, not that an operator recorded every real-world input honestly.
-
-
-
-See `RELEASE_STATUS.md` for current verification and deployment gates.
-
-
-For test-only role setup, `npx tsx scripts/setup-testnet-keys.ts` creates missing keys in ignored `.env` and prints only public addresses. It never overwrites existing keys. Administration and operations default to the test deployer and can be changed before contract deployment. Keep the deployer key off the hosted services.
-
-## Controlled pre-release registration
-
-`ENTRY_ACCESS_MODE=invite-only` is the default. Set `BETA_TESTER_WALLETS` to comma-separated invited public addresses on the game service. An empty or invalid invitation configuration cannot authorize entries. `ENABLE_PAID_EPOCHS=true` enables the testnet coordinator and entry path; keep invite-only restrictions during verification. Remove those restrictions with explicit `ENTRY_ACCESS_MODE=public` only after the release gates pass. Invitations are checked after Privy verifies wallet ownership and before any entry authorization is signed. Cancellation and withdrawals stay available regardless of invitation status.
-
-The worker container needs `SERVICE_ROLE=worker`; game is the default image role. Both run locked schema migrations before starting. Public contract addresses are saved in `deploy/arc-testnet.json`.
-
-The worker indexes finalized registration and cancellation logs in bounded ranges. Set `ESCROW_DEPLOYMENT_BLOCK` from the deployment output; its database cursor advances atomically with history inserts, including entries cancelled between roster polls.
+Monitor simulation delays, bandwidth, room leases, reconnects, model spend/latency, funded inventory, pending allocations, task reviews, retirement reconciliation, outstanding liabilities and payout failures. Mainnet token launch, automated pons revenue collection/conversion and real-asset activation are outside this testnet release.

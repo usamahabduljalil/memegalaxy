@@ -43,7 +43,7 @@ Use `Dockerfile.economy-verify` only for temporary staging probes. Normal servic
 
 The staging game service also serves a compiled review frontend at `https://memegalaxy-staging-production.up.railway.app/?preview=memegalaxy#lobby`. It reuses the existing service rather than provisioning another one; normal worker images contain no frontend. Build with `npm run build`, package the explicit secret-free tree with `node scripts/package-railway-review.mjs`, then upload that tree to the staging game service using `--path-as-root --no-gitignore`. The normal `RAILWAY_DOCKERFILE_PATH=Dockerfile` is retained. Never upload the project root with `--no-gitignore`.
 
-This HTTPS address is reachable from a physical phone; a computer localhost address is not. If Privy allowed origins are configured, add the exact staging origin to the same Privy app before phone sign-in. The review environment shares existing testnet accounts and real test assets. It is not the published Sites frontend.
+This HTTPS address is reachable from a physical phone; a computer localhost address is not. Allow the exact staging origin in the ZeroDev project before phone sign-in. The review environment shares existing testnet accounts and real test assets. It is not the published Sites frontend.
 
 ## Public beta release
 
@@ -57,4 +57,4 @@ Expired hunting leases are disconnected without pausing valid hunters. A databas
 
 Four recovery tests cover partial lease expiry, storage failures, storage recovery and disconnected leases. Three matchmaking tests cover spectators, pending admissions, full rooms and mode isolation. A disposable WebSocket drill admitted 100 players plus 20 spectators, rejected excess capacity, verified fresh reentry and retained cells through a network reconnect. Existing prize start/no-show behavior passed its regression drill. These drills use no production accounts, rewards or chain transactions.
 
-Paid skin prices, GUSD tasks and retirement rates still require operator configuration. Social verification credentials remain optional integration setup. The current USDC prize pool is zero; a future prize epoch needs at least 100 mock test USDC in the existing prize escrow. Existing contracts and legacy recovery are preserved.
+Paid skin prices, GUSD tasks and retirement rates still require operator configuration. Social verification credentials remain optional integration setup. The current USDC prize pool is zero; a future prize epoch needs at least 100 mock test USDC in the existing prize escrow. Robinhood prize contracts and arena recovery are preserved.

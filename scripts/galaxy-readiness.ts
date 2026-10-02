@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import { createPublicClient,http,parseAbi,keccak256,stringToHex,formatEther,type Address,type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-const deployment=JSON.parse(readFileSync('deploy/robinhood-testnet.json','utf8'));
+const deployment=JSON.parse(readFileSync('deploy/robinhood-testnet-v4.json','utf8'));
 const client=createPublicClient({transport:http('https://rpc.testnet.chain.robinhood.com')});
 const abi=parseAbi(['function hasRole(bytes32,address) view returns(bool)','function currentEpoch() view returns(uint256)','function availablePrize() view returns(uint256)']);
 if(await client.getChainId()!==46630)throw new Error('Robinhood testnet required');

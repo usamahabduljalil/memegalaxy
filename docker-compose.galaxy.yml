@@ -13,12 +13,23 @@ services:
       retries: 10
   game:
     build: .
-    env_file: deploy/memegalaxy.env.example
+    env_file: .env
     environment:
       SERVICE_ROLE: galaxy-game
+      PORT: 2568
       MEMEGALAXY_DATABASE_URL: postgresql://postgres:postgres@db:5432/memegalaxy
       MEMEGALAXY_ADMISSION_SECRET: local-development-only-change-before-deployment
     ports: ["2568:2568"]
+    depends_on:
+      db:
+        condition: service_healthy
+  worker:
+    profiles: ["prizes"]
+    build: .
+    env_file: .env
+    environment:
+      SERVICE_ROLE: galaxy-worker
+      MEMEGALAXY_DATABASE_URL: postgresql://postgres:postgres@db:5432/memegalaxy
     depends_on:
       db:
         condition: service_healthy

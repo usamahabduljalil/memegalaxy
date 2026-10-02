@@ -1,13 +1,13 @@
 # MEMEGalaxy implementation status
 
-The version-two implementation is isolated from Big Circle's Arc contracts, database records, replay format and recovery interface. Do not deploy it over the Arc game service or run the legacy worker with Robinhood addresses.
+
+MEMEGalaxy runs on Robinhood Chain testnet with independently namespaced deployments, durable records and versioned replay decoding.
 
 ## Development
 
 - `npm run dev`: browser frontend. `#training` runs clearly labeled local heuristic training agents; `#free` connects to the separate authoritative service.
 - `npm run galaxy:server`: new service on port 2568. Uses `MEMEGALAXY_DATABASE_URL`, falling back to `DATABASE_URL`; new tables are prefixed `mg_`.
 - `npm run galaxy:agent`: owner-operated reference agent. Requires `MEMEGALAXY_AGENT_KEY`. Optional `OPENAI_API_KEY`, `AGENT_MODEL`, `AGENT_PROVIDER_URL`. With no model key, uses the explicit local survival policy.
-- `VITE_MEMEGALAXY_API_URL`: public new-service HTTP origin. Never point it at the legacy Arc service.
 - `MEMEGALAXY_ADMISSION_SECRET`: at least 32 characters for production. `MEMEGALAXY_WEB_ORIGINS`: comma-separated permitted browser origins.
 
 ## Protocol
@@ -22,11 +22,9 @@ The current protocol-2 gameplay ruleset is `memegalaxy-v2.1.0`; `memegalaxy-v2.0
 
 Testnet prize admission is enabled for controlled integration testing after explicit owner approval. Hosted wallet onboarding, mixed human/agent matches and full live recovery drills remain release gates. Real-money activity remains disabled. Pons funding is not represented as automatic USDC revenue.
 
-Before cutover: reconcile and pause new Arc entries, retain old cancellation/claims, launch separate Robinhood staging services, complete funded human/agent matches, measure five 100-player rooms, verify mobile FPS and hosted Privy login. Never reuse a chain-specific escrow address on another network.
 
 ## Staging and verification — 22 September 2026
 
-- Local development opens MEMEGalaxy. Production retains the legacy landing page until `VITE_MEMEGALAXY_LIVE=true`; the new experience is available with `?preview=memegalaxy`. This is a preview route, not a separate security boundary.
 - The authoritative staging service is `https://memegalaxy-staging-production.up.railway.app`. Prize admission and the worker are enabled; epoch 1 is confirmed onchain. The new testnet contract addresses and deployment transaction hashes are in `deploy/robinhood-testnet.json`. The vault was seeded with 1,000 mock test USDC; this is not launchpad revenue.
 - 48 existing gameplay/protocol/replay tests passed, plus four new runner tests covering reconnect sequencing, invalid responses, slow providers, and expired decisions. TypeScript is checked before packaging.
 - Previous local socket verification sustained 500 connections in five rooms with p95 processing of 25.674 ms. The slowest connection received about eight updates/second; the nominal ten-update target still needs production load verification. No representative physical mobile device FPS result has been recorded.
@@ -73,15 +71,15 @@ A standalone, secret-free runner kit is published at `/memegalaxy-agent-kit.zip`
 
 This section supersedes the owner-operated runner flow above for new entries. External credentials and historical controller/replay records remain compatible. The existing Robinhood v4 escrow, token, entry fee, deposit and payout rules are unchanged; this release does not redeploy contracts or alter legacy assets.
 
-The application uses a shared Privy session with linked-wallet verification, external and email wallets, a responsive cosmic landing/app shell, Agent Lab, lobby, rankings, profiles, transactions, claim controls, MCP consent and arena/results views. Original artwork, self-hosted Inter/Space Grotesk, focus trapping, reduced motion and mobile navigation are included. Finance amounts are labeled as test assets.
+The application introduced a shared wallet session with linked-wallet verification, external and email wallets (subsequently replaced by ZeroDev), a responsive cosmic landing/app shell, Agent Lab, lobby, rankings, profiles, transactions, claim controls, MCP consent and arena/results views. Original artwork, self-hosted Inter/Space Grotesk, focus trapping, reduced motion and mobile navigation are included. Finance amounts are labeled as test assets.
 
 New agent profiles are hosted-capable without external access keys. A confirmed entry snapshots its controller configuration and queues a durable run. Cancellation removes pending runs. Runtime instances claim exclusive seven-second database leases, use short-lived room admissions, persist encrypted reconnect tickets, and send the same validated actions as humans. Profile edits affect future matches. The runtime has no wallet private keys or settlement authority.
 
-Railway's current plan rejected an additional service. With owner approval, the existing `memegalaxy-staging` service supervises an isolated runtime child process. Its environment is allowlisted separately from the game process; it receives the model key, database connection and admission secret, but no Privy or wallet keys. `SERVICE_ROLE=galaxy-agent` is available for a dedicated service after the hosting upgrade. Do not scale the embedded-runtime topology as though it were a separately provisioned fleet.
+Railway's current plan rejected an additional service. With owner approval, the existing `memegalaxy-staging` service supervises an isolated runtime child process. Its environment is allowlisted separately from the game process; it receives the model key, database connection and admission secret, but no wallet keys. `SERVICE_ROLE=galaxy-agent` is available for a dedicated service after the hosting upgrade. Do not scale the embedded-runtime topology as though it were a separately provisioned fleet.
 
 GPT-6 Luna uses structured strategic decisions at most once every two seconds, with one outstanding request and a four-second timeout. Local movement continues at up to 15 Hz. Waiting and eliminated agents do not call models. Atomic reservations cap total inference at $10 per Africa/Lagos day and each run at $0.25. Reservations use conservative pricing including a cache-write allowance. Timeouts are charged conservatively where actual usage is unavailable. Fair request allocation prioritizes prize runs over practice; provider or budget failures switch to the visible local survival controller. Owners have up to three profiles, one active hosted run, and one five-minute practice allocation per day.
 
-Remote Streamable HTTP MCP is served at `/mcp` by the official SDK with `oidc-provider`, PKCE S256, JWT resource-bound access tokens, discovery, dynamic registration, scoped Privy-backed consent, revocation and PostgreSQL persistence. A connection is marked verified only after an authenticated successful tool call. Prize preparation creates an expiring review link; neither MCP nor the model can sign wallet transactions. No client setup is represented as verified until it has been exercised in that client.
+Remote Streamable HTTP MCP is served at `/mcp` by the official SDK with `oidc-provider`, PKCE S256, JWT resource-bound access tokens, discovery, dynamic registration, scoped wallet-backed consent, revocation and PostgreSQL persistence. A connection is marked verified only after an authenticated successful tool call. Prize preparation creates an expiring review link; neither MCP nor the model can sign wallet transactions. No client setup is represented as verified until it has been exercised in that client.
 
 Server-side credentials are stored in Railway variables. The approved OpenAI key came from ignored `.env.local`; MCP signing/cookie secrets were generated in ignored `.env.mcp`. Neither belongs in frontend bundles, source commits or MCP observations. `MEMEGALAXY_VERIFY_HOSTED` and `MEMEGALAXY_VERIFY_RUNTIME` are temporary staging probes, not permanent health checks.
 
@@ -91,7 +89,7 @@ Verification recorded for this release:
 - A temporary PostgreSQL schema verified owner isolation, concurrent idempotency, profile/run/practice limits, atomic daily/run budgets, reservation retry safety and explicit forfeit rules, then was removed.
 - A clearly labeled, non-prize diagnostic agent automatically joined the hosted free-play room, received authoritative owned-cell state and valid real model guidance without an owner browser. Its run was stopped and profile disabled; diagnostic usage remains auditable.
 - Five rooms with 500 live WebSocket clients sustained a 30-second run. The p95 simulation-plus-broadcast processing time was 14.996 ms, below 33 ms. All connections remained live; the slowest received 274 updates in about 30 seconds. A separate realistic hosted-controller fleet test is still needed.
-- Public MCP discovery, S256 metadata, dynamic registration and unauthenticated rejection were verified. Desktop/mobile screens and actual Privy wallet/email choice were inspected. Local populated design fixtures contain fictional data only and are excluded from production.
+- Public MCP discovery, S256 metadata, dynamic registration and unauthenticated rejection were verified. Desktop/mobile screens and the wallet choice dialog were inspected. Local populated design fixtures contain fictional data only and are excluded from production.
 
 Remaining release gates: real external/email wallet onboarding through the new hosted entry flow; authenticated OAuth/tool calls and revocation in the selected MCP clients; a mixed human/hosted-agent prize match including automatic admission, browser closure, payout and deposit return; physical-device mobile FPS; and hosted-controller fleet traffic. Existing successful all-human prize matches remain the baseline, not proof of these new flows. Save the redesigned Site version for review; publish only after the required staging flows succeed. Mainnet remains disabled.
 

@@ -15,8 +15,8 @@ EOA/ERC-1271/EIP-6492 verifier on that chain. Only a successful proof creates a
 hashed, revocable 24-hour API session. Client-supplied wallet headers cannot
 change its owner. Arena admissions and MCP tokens remain separate credentials.
 
-New identities are `wallet:<lowercase address>`. They do not inherit Privy
-profiles, agents, GUSD, or MCP grants. History stays intact. Rewards and escrow
+New identities are `wallet:<lowercase address>`. Each verified wallet has its own
+profile, agents, GUSD, and MCP grants. Rewards and escrow
 claims whose immutable recipient is the verified wallet remain discoverable.
 Connecting another wallet signs in to that wallet's separate profile.
 
@@ -45,13 +45,12 @@ The platform never promises sponsorship solely because a wallet is connected.
   staging and production passkeys are separate; don't use `chatgpt.site` as a
   shared RP ID. Choose an owned custom domain before offering shared passkeys.
 
-## Legacy recovery
+## Claims and recovery
 
-Arc recovery is a wallet-operated onchain screen. It needs the original external
-wallet and test USDC for gas, not a Privy profile. New email wallets cannot access
-old embedded-wallet assets unless the owner separately has that original wallet.
-MEMEGalaxy's earlier Robinhood claims and Stock Hunt allocations similarly keep
-their original payout recipients. Assets are never moved during this cutover.
+Robinhood prize claims and Stock Hunt allocations retain their original payout
+recipients. Use the same verified wallet to claim earned rewards. Arena recovery
+remains permissionless under the escrow deadline; changing wallets never moves
+assets automatically.
 
 References: [ZeroDev quickstart](https://docs.zerodev.app/wallets/quickstart),
 [email OTP](https://docs.zerodev.app/wallets/auth/email-otp),

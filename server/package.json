@@ -1,12 +1,12 @@
 {
-  "name": "big-circle-service",
+  "name": "memegalaxy-service",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "server": "tsx server/start.ts game",
-    "worker": "tsx server/start.ts worker",
-    "db:migrate": "tsx server/migrate.ts"
+    "server": "tsx server/start.ts galaxy-game",
+    "worker": "tsx server/start.ts galaxy-worker",
+    "db:migrate": "tsx server/galaxy/migrate.ts"
   },
   "dependencies": {
     "@colyseus/core": "^0.16.24",
@@ -15,7 +15,6 @@
     "@colyseus/schema": "^3.0.0",
     "@colyseus/ws-transport": "^0.16.5",
     "@modelcontextprotocol/sdk": "^1.31.0",
-    "@privy-io/server-auth": "^1.32.0",
     "colyseus.js": "^0.16.22",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",

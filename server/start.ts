@@ -1,6 +1,6 @@
 import {spawn,execFileSync,type ChildProcess} from 'node:child_process';
 export {};
-const role=process.env.SERVICE_ROLE||process.argv[2];
+const role=process.env.SERVICE_ROLE||process.argv[2]||'galaxy-game';
 if(role==='galaxy-game'){
  if(process.env.MEMEGALAXY_VERIFY_ECONOMY_FLOW==='true')execFileSync(process.execPath,['--import','tsx','scripts/verify-economy-flow.ts'],{stdio:'inherit',timeout:180000});
  if(process.env.MEMEGALAXY_VERIFY_ECONOMY==='true')execFileSync(process.execPath,['--import','tsx','server/galaxy/verify-economy.ts'],{stdio:'inherit',timeout:120000});
@@ -16,4 +16,4 @@ if(role==='galaxy-game'){
  }
 }else if(role==='galaxy-worker')await import('./galaxy/worker');
 else if(role==='galaxy-agent')await import('./galaxy/runtime');
-else {const {migrate}=await import('./migrate');await migrate();if(role==='game')await import('./index');else if(role==='worker')await import('./worker');else throw new Error('Expected game, worker, galaxy-game, galaxy-agent or galaxy-worker service role');}
+else throw new Error('Expected galaxy-game, galaxy-agent or galaxy-worker service role');

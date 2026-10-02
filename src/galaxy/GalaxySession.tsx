@@ -28,7 +28,7 @@ function SessionProvider({children}:{children:ReactNode}){
  const proofInFlight=useRef<Promise<void>|null>(null),attempted=useRef('');
  const wallet=useMemo<GalaxyWallet|undefined>(()=>{if(account.status!=='connected'||!account.address||!account.connector)return;const connector=account.connector,address=getAddress(account.address),smart=connector.id==='zerodev-wallet';
   const provider=async()=>await connector.getProvider() as EIP1193Provider;
-  const switchChain=async(id:number)=>{if(![46630,5042002].includes(id))throw new Error('Only test networks are enabled.');if(smart&&id!==46630)throw new Error('Use the original external wallet for legacy Arc claims.');if(!connector.switchChain)throw new Error('Switch networks in your wallet and retry.');await connector.switchChain({chainId:id});};
+  const switchChain=async(id:number)=>{if(id!==robinhoodTestnet.id)throw new Error('Only Robinhood testnet is enabled.');if(!connector.switchChain)throw new Error('Switch networks in your wallet and retry.');await connector.switchChain({chainId:id});};
   const send=async(call:WalletCall)=>{await switchChain(46630);return createWalletClient({account:address,chain:robinhoodTestnet,transport:custom(await provider())}).sendTransaction(call);};
   const sendBatch=async(calls:WalletCall[])=>{if(!smart)throw new Error('Batching requires a ZeroDev smart wallet.');await switchChain(46630);const p=await provider();const result=await p.request({method:'wallet_sendCalls' as any,params:[{version:'2.0.0',chainId:'0xb626',from:address,atomicRequired:true,calls:calls.map(c=>({...c,value:'0x'+(c.value??0n).toString(16)}))}] as any}) as {id:string};
    // Bundle IDs identify UserOperations. Never resubmit after an ambiguous timeout.

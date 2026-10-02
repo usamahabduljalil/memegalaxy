@@ -1,32 +1,37 @@
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:16-alpine
     environment:
-      POSTGRES_DB: bigcircle
-      POSTGRES_USER: bigcircle
-      POSTGRES_PASSWORD: bigcircle
-    ports: ["127.0.0.1:5432:5432"]
-    volumes: ["db-data:/var/lib/postgresql/data"]
+      POSTGRES_DB: memegalaxy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["5433:5432"]
+    volumes: ["galaxy-data:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bigcircle"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d memegalaxy"]
       interval: 5s
       retries: 10
   game:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgres://bigcircle:bigcircle@db:5432/bigcircle
-    command: ["sh", "-c", "npm run db:migrate && npm run server"]
-    ports: ["2567:2567"]
+      SERVICE_ROLE: galaxy-game
+      PORT: 2568
+      MEMEGALAXY_DATABASE_URL: postgresql://postgres:postgres@db:5432/memegalaxy
+      MEMEGALAXY_ADMISSION_SECRET: local-development-only-change-before-deployment
+    ports: ["2568:2568"]
     depends_on:
-      db: {condition: service_healthy}
+      db:
+        condition: service_healthy
   worker:
+    profiles: ["prizes"]
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgres://bigcircle:bigcircle@db:5432/bigcircle
-    command: ["sh", "-c", "npm run db:migrate && npm run worker"]
+      SERVICE_ROLE: galaxy-worker
+      MEMEGALAXY_DATABASE_URL: postgresql://postgres:postgres@db:5432/memegalaxy
     depends_on:
-      db: {condition: service_healthy}
+      db:
+        condition: service_healthy
 volumes:
-  db-data:
+  galaxy-data:
