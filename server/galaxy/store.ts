@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS mg_stat_awards(match_id text NOT NULL,player_id text 
 CREATE TABLE IF NOT EXISTS mg_epochs(deployment text NOT NULL,id bigint NOT NULL,status text NOT NULL,secret text NOT NULL,commitment text NOT NULL,PRIMARY KEY(deployment,id));
 ALTER TABLE mg_epochs ADD COLUMN IF NOT EXISTS entropy_hash text;
 CREATE TABLE IF NOT EXISTS mg_owners(owner text PRIMARY KEY,wallet text NOT NULL,updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_wallet_identities(wallet text PRIMARY KEY,owner text UNIQUE NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS mg_wallet_challenges(id uuid PRIMARY KEY,wallet text NOT NULL,origin text NOT NULL,message text NOT NULL,expires_at timestamptz NOT NULL,consumed_at timestamptz);
+CREATE TABLE IF NOT EXISTS mg_wallet_sessions(token_hash text PRIMARY KEY,owner text NOT NULL,wallet text NOT NULL,expires_at timestamptz NOT NULL);
+CREATE INDEX IF NOT EXISTS mg_wallet_session_expiry ON mg_wallet_sessions(expires_at);
 ALTER TABLE mg_agents ADD COLUMN IF NOT EXISTS hosted_enabled boolean NOT NULL DEFAULT true;
 ALTER TABLE mg_agents ADD COLUMN IF NOT EXISTS instructions varchar(1000) NOT NULL DEFAULT '';
 ALTER TABLE mg_agents ADD COLUMN IF NOT EXISTS model text NOT NULL DEFAULT 'gpt-6-luna';

@@ -30,3 +30,5 @@
 .mg-sidebar{overflow-y:auto;overscroll-behavior:contain}.mg-sidebar nav,.mg-sidebar-bottom{flex-shrink:0}
 
 .mg-account-button{max-width:220px}.mg-account-button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.mg-account-button svg{flex-shrink:0}@media(max-width:700px){.mg-header-right .mg-wallet-anchor .mg-account-button{width:auto;max-width:clamp(80px,calc(100vw - 230px),150px);gap:7px;padding-inline:12px}.mg-header-right .mg-wallet-anchor .mg-account-button svg:first-child{display:none}.mg-header-right .mg-wallet-anchor .mg-account-button svg:last-child{display:block}}
+
+.mg-app.mg-wallet-overlay{position:fixed;inset:0;z-index:1000;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;background:#040710ba;backdrop-filter:blur(8px);padding:16px;overflow-y:auto;color:#edf1ff}.mg-wallet-overlay .mg-connect-dialog{max-height:calc(100dvh - 32px);overflow-y:auto}.mg-wallet-overlay .mg-connect-dialog h2{color:#edf1ff}.mg-wallet-overlay .mg-stack>.mg-button{width:100%}

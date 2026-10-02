@@ -1,0 +1,5 @@
+import {decodeEventLog,parseAbi,type Address,type Hex} from 'viem';
+export const escrowEvents=parseAbi(['event Registered(uint256 indexed epoch,address indexed wallet,bytes32 indexed userId,uint256 amount)','event Cancelled(uint256 indexed epoch,address indexed wallet)','event TokenReturned(uint256 indexed epoch,address indexed wallet,uint256 amount)','event USDCPaid(uint256 indexed epoch,address indexed wallet,uint256 amount)','event ArenaInvalidated(uint256 indexed epoch,uint256 indexed arena)']);
+export function walletEscrowEvents(logs:readonly {address:string;data:Hex;topics:readonly Hex[];logIndex?:number|null}[],escrow:Address,wallet:Address){
+ return logs.flatMap(log=>{if(log.address.toLowerCase()!==escrow.toLowerCase())return [];try{const e=decodeEventLog({abi:escrowEvents,data:log.data,topics:log.topics as [Hex,...Hex[]]});if(!('wallet' in e.args)||e.args.wallet.toLowerCase()!==wallet.toLowerCase())return [];const kind={Registered:'register',Cancelled:'cancel',TokenReturned:'claimToken',USDCPaid:'claimUSDC'}[e.eventName as 'Registered'];return [{epoch:String(e.args.epoch),kind,index:log.logIndex??0}];}catch{return [];}});
+}

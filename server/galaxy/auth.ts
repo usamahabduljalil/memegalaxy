@@ -1,28 +1,27 @@
 import { randomBytes,createHash } from 'node:crypto';
-import { PrivyClient } from '@privy-io/server-auth';
+import {sessionHash} from './wallet-auth';
 import { SignJWT,jwtVerify } from 'jose';
 import type { Request } from 'express';
 import { db,persistent } from './store';
 const secret=process.env.MEMEGALAXY_ADMISSION_SECRET??process.env.ADMISSION_SECRET;
 if(process.env.NODE_ENV==='production'&&(!secret||secret.length<32))throw new Error('Configure a 32-character admission secret');
 const key=new TextEncoder().encode(secret??randomBytes(32).toString('hex'));
-const privy=process.env.PRIVY_APP_ID&&process.env.PRIVY_APP_SECRET?new PrivyClient(process.env.PRIVY_APP_ID,process.env.PRIVY_APP_SECRET):null;
 export type Owner={id:string;wallet:string};
 export const trustedOwner=Symbol('verified owner');
 export async function ownerById(id:string,selected?:string):Promise<Owner>{
- if(!privy)throw Object.assign(new Error('Wallet authentication is not configured'),{status:503});
- const user=await privy.getUser(id);
- const accounts=user.linkedAccounts.filter(a=>a.type==='wallet'&&a.chainType==='ethereum') as Array<{address:string;walletClientType?:string}>;
- const preference=persistent?(await db.query('SELECT wallet FROM mg_owners WHERE owner=$1',[id])).rows[0]?.wallet:undefined;
- const wallet=(selected??preference??accounts.find(a=>a.walletClientType==='privy')?.address??accounts[0]?.address)?.toLowerCase();
- if(!wallet||!accounts.some(a=>a.address.toLowerCase()===wallet))throw Object.assign(new Error('Connect a wallet linked to your account'),{status:401});
+ if(!persistent)throw Object.assign(new Error('Wallet authentication is unavailable'),{status:503});
+ const wallet=(await db.query('SELECT wallet FROM mg_wallet_identities WHERE owner=$1',[id])).rows[0]?.wallet;
+ if(!wallet||selected&&selected.toLowerCase()!==wallet)throw Object.assign(new Error('Verify ownership of this wallet first'),{status:401});
  return {id,wallet};
 }
 export async function owner(req:Request):Promise<Owner>{
  const verified=(req as Request&{[trustedOwner]?:Owner})[trustedOwner];if(verified)return verified;
- if(!privy)throw Object.assign(new Error('Wallet authentication is not configured'),{status:503});
  const token=req.headers.authorization?.replace(/^Bearer /,'');if(!token)throw Object.assign(new Error('Connect your wallet first'),{status:401});
- try{const claims=await privy.verifyAuthToken(token);return await ownerById(claims.userId,req.get('X-Memegalaxy-Wallet'));}catch(e){if((e as any).status)throw e;throw Object.assign(new Error('Your session expired. Connect again.'),{status:401});}
+ if(!/^[a-f0-9]{64}$/.test(token))throw Object.assign(new Error('Your session expired. Connect again.'),{status:401});
+ const session=(await db.query('SELECT owner,wallet FROM mg_wallet_sessions WHERE token_hash=$1 AND expires_at>now()',[sessionHash(token)])).rows[0];
+ const selected=req.get('X-Memegalaxy-Wallet');
+ if(!session||selected&&selected.toLowerCase()!==session.wallet)throw Object.assign(new Error('Your session expired or wallet changed. Connect again.'),{status:401});
+ return {id:session.owner,wallet:session.wallet};
 }
 export const hashKey=(key:string)=>createHash('sha256').update(key).digest('hex');
 export {publicPlayerId} from './identity';

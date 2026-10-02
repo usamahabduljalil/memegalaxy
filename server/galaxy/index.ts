@@ -22,12 +22,14 @@ import { assertPrizeEscrow,deployment,paid } from './chain';
 import { ROOM_CREATION_GRACE_SECONDS } from './lifecycle';
 import { platformRoutes } from './platform';
 import { configureMcp } from './mcp';
+import {walletAuthRoutes} from './wallet-auth';
 const origins=(process.env.MEMEGALAXY_WEB_ORIGINS??process.env.WEB_ORIGINS??'http://127.0.0.1:5173,http://localhost:5173').split(',');
 const reviewDirectory=resolve('web-review');
 if(existsSync(join(reviewDirectory,'index.html'))&&process.env.MEMEGALAXY_API_URL)origins.push(new URL(process.env.MEMEGALAXY_API_URL).origin);
 const app=express();app.disable('x-powered-by');
 if(existsSync(join(reviewDirectory,'index.html')))app.use(express.static(reviewDirectory,{dotfiles:'deny',setHeaders(res,file){res.setHeader('Cache-Control',file.endsWith('index.html')?'no-store':'public, max-age=3600');}}));app.set('trust proxy',1);app.use(cors({origin(origin,done){done(null,!origin||origins.includes(origin));}}));const json=express.json({limit:'8kb'});app.use((req,res,next)=>req.path.startsWith('/oauth/')?next():json(req,res,next));app.use(rateLimit({windowMs:60000,limit:120}));
 const route=(fn:(req:express.Request,res:express.Response)=>Promise<unknown>):express.RequestHandler=>(req,res,next)=>{Promise.resolve(fn(req,res)).catch(next);};
+walletAuthRoutes(app,route);
 app.get('/health',(_req,res)=>res.json({ok:true,product:'MEMEGalaxy',protocol:2,chainId:46630,persistent,paidEnabled:paid&&persistent,features:['stock-hunt','wardrobe','gusd','weekly-claims']}));
 app.get('/api/v2/lobby',route(async(_req,res)=>res.json({chainId:46630,paidEnabled:paid&&persistent,message:paid&&persistent?'Testnet prize registration is open. All prizes are test assets.':'Free play is open. Prize matches await release verification.',rooms:(await matchMaker.query({name:'galaxy'})).map(r=>({id:r.roomId,players:roomPopulation(r),spectators:r.metadata?.spectators??0,mode:r.metadata?.mode})),capacity:100})));
 async function freeRoom(){const rooms=await matchMaker.query({name:'galaxy',locked:false});const room=availableRoom(rooms,'free');return room?.roomId??(await matchMaker.createRoom('galaxy',{mode:'free',serviceKey:roomCreationKey})).roomId;}
