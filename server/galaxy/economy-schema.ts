@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS mg_economy_audit(id bigserial PRIMARY KEY,actor text 
 CREATE TABLE IF NOT EXISTS mg_economy_transactions(id text PRIMARY KEY,hash text NOT NULL,raw text,nonce bigint NOT NULL,status text NOT NULL);
 CREATE TABLE IF NOT EXISTS mg_progress_cursors(room_id text NOT NULL,player_id text NOT NULL,tick bigint NOT NULL,PRIMARY KEY(room_id,player_id));
 ALTER TABLE mg_profiles ADD COLUMN IF NOT EXISTS progress_at timestamptz;
+ALTER TABLE mg_profiles ADD COLUMN IF NOT EXISTS name_custom boolean;
+UPDATE mg_profiles SET name_custom=(name<>'Explorer') WHERE name_custom IS NULL;
+ALTER TABLE mg_profiles ALTER COLUMN name_custom SET DEFAULT false;
+ALTER TABLE mg_profiles ALTER COLUMN name_custom SET NOT NULL;
 CREATE TABLE IF NOT EXISTS mg_economy_cursors(id text PRIMARY KEY,block_number bigint NOT NULL);
 `);
  for(const skin of SKINS)await c.query('INSERT INTO mg_skins(id,config) VALUES($1,$2) ON CONFLICT DO NOTHING',[skin.id,skin]);

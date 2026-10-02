@@ -3,12 +3,16 @@ import type {PoolClient} from 'pg';
 import {db} from './store';
 import type {Owner} from './auth';
 import {publicPlayerId} from './identity';
+import {walletPlayerName} from '../../shared/galaxy/player-name';
 import {lagosDay,rewardWeek,pickupAmount,type Skin} from '../../shared/galaxy/economy';
 export const problem=(message:string,status=409)=>Object.assign(new Error(message),{status});
 export async function transaction<T>(fn:(c:PoolClient)=>Promise<T>){const c=await db.connect();try{await c.query('BEGIN');const result=await fn(c);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
 export async function audit(c:PoolClient,actor:string,action:string,subject:string,detail:unknown){await c.query('INSERT INTO mg_economy_audit(actor,action,subject,detail) VALUES($1,$2,$3,$4)',[actor,action,subject,JSON.stringify(detail)]);}
 export async function config(c:Pick<PoolClient,'query'>=db){return (await c.query('SELECT version,settings FROM mg_economy_config ORDER BY version DESC LIMIT 1')).rows[0];}
-export async function profile(auth:Owner){await db.query("INSERT INTO mg_profiles(owner,name) VALUES($1,COALESCE((SELECT name FROM mg_stats WHERE player_id=$2),(SELECT name FROM mg_entries WHERE owner=$1 ORDER BY epoch DESC LIMIT 1),'Explorer')) ON CONFLICT DO NOTHING",[auth.id,publicPlayerId(auth.id)]);await db.query("INSERT INTO mg_skin_inventory(owner,skin,method) SELECT $1,id,'starter' FROM mg_skins WHERE published AND config->>'tier'='Common' ON CONFLICT DO NOTHING",[auth.id]);return (await db.query('SELECT name,skin,peak_mass,active_seconds FROM mg_profiles WHERE owner=$1',[auth.id])).rows[0];}
+export async function profile(auth:Owner){const result=await db.query(`WITH previous AS (SELECT COALESCE(NULLIF((SELECT name FROM mg_stats WHERE player_id=$2),'Explorer'),NULLIF((SELECT name FROM mg_entries WHERE owner=$1 AND controller='human' ORDER BY epoch DESC LIMIT 1),'Explorer')) AS name)
+ INSERT INTO mg_profiles(owner,name,name_custom) SELECT $1,COALESCE(name,$3),name IS NOT NULL FROM previous WHERE true
+ ON CONFLICT(owner) DO UPDATE SET name=CASE WHEN mg_profiles.name_custom THEN mg_profiles.name ELSE $3 END
+ RETURNING name,skin,peak_mass,active_seconds`,[auth.id,publicPlayerId(auth.id),walletPlayerName(auth.wallet)]);await db.query("INSERT INTO mg_skin_inventory(owner,skin,method) SELECT $1,id,'starter' FROM mg_skins WHERE published AND config->>'tier'='Common' ON CONFLICT DO NOTHING",[auth.id]);return result.rows[0];}
 export function adminRoles(auth:Owner){const configured=process.env.MEMEGALAXY_ECONOMY_ADMINS??'';const entries=configured.split(',').map(s=>s.trim().toLowerCase());return entries.includes(auth.wallet.toLowerCase())?['economy','reviewer']:[];}
 export function requireAdmin(auth:Owner,role='economy'){if(!adminRoles(auth).includes(role))throw problem('Economy administrator access required',403);}
 export async function credit(c:PoolClient,owner:string,delta:bigint,kind:string,reference:string,actor?:string){
