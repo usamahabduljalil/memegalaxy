@@ -1,0 +1,17 @@
+import {build} from 'vite';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,cpSync} from 'node:fs';
+import {resolve,join,relative} from 'node:path';
+const root=resolve('.'),target=resolve('.local/admin-site'),output=join(target,'dist');
+if(relative(root,target).startsWith('..')||!target.startsWith(root))throw Error('Admin build must stay within the workspace');
+const manifest=JSON.parse(readFileSync('admin-portal/hosting.json','utf8'));
+if(!manifest.project_id)throw Error('Register the admin site before building');
+mkdirSync(join(target,'.openai'),{recursive:true});
+if(existsSync(join(target,'.openai/hosting.json'))&&JSON.parse(readFileSync(join(target,'.openai/hosting.json'),'utf8')).project_id!==manifest.project_id)throw Error('Admin Site identity changed');
+writeFileSync(join(target,'.openai/hosting.json'),JSON.stringify(manifest,null,2)+'\n');
+await build({mode:'admin',build:{outDir:output,emptyOutDir:true}});
+let html=readFileSync(join(output,'index.html'),'utf8').replace(/<title>[^<]*<\/title>/,'<title>MEMEGalaxy Admin</title>').replace(/<meta name="description"[^>]*>/,'<meta name="description" content="Private MEMEGalaxy administration."/><meta name="robots" content="noindex,nofollow,noarchive"/>');
+writeFileSync(join(output,'index.html'),html);
+writeFileSync(join(output,'robots.txt'),'User-agent: *\nDisallow: /\n');
+writeFileSync(join(target,'README.md'),'# MEMEGalaxy Admin\n\nOwner-private, prebuilt static administration site. Source is maintained in the MEMEGalaxy repository (`src/galaxy/GalaxyAdminPortal.tsx` and `GalaxyAdmin.tsx`). Built by `scripts/build-admin-site.mjs`. Every operation also requires an allowlisted wallet verified by the API. No service secrets are embedded.\n');
+writeFileSync(join(target,'.gitignore'),'.env\n.env.*\nnode_modules/\n');
+console.log(JSON.stringify({project_id:manifest.project_id,checkout_path:target,output}));
